@@ -1,6 +1,8 @@
 use notan::prelude::*;
 use notan::draw::*;
 
+mod proof;
+
 #[derive(AppState)]
 struct State {
     font: Font,
