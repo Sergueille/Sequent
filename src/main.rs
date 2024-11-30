@@ -1,11 +1,17 @@
+#![allow(dead_code)]
+
 use notan::prelude::*;
 use notan::draw::*;
 
-mod proof;
+mod proofs;
+mod coord;
+
 
 #[derive(AppState)]
 struct State {
-    font: Font,
+    text_font: Font,
+    symbol_font: Font,
+    text_calculator: notan::text::Calculator,
 }
 
 #[notan_main]
@@ -29,7 +35,15 @@ fn setup(gfx: &mut Graphics) -> State {
         .create_font(include_bytes!("../assets/fonts/cmunrm.ttf"))
         .unwrap();
 
-    State { font }
+    let symbol_font = gfx
+        .create_font(include_bytes!("../assets/fonts/JuliaMono.ttf"))
+        .unwrap();
+
+    State {
+        text_font: font, 
+        symbol_font, 
+        text_calculator: notan::text::Calculator::new(), 
+    }
 }
 
 fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
@@ -43,7 +57,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         test_sine(app, 2.0 / 3.0),
     );
 
-    draw.text(&state.font, "J'aime dériver des sequents")
+    draw.text(&state.text_font, "J'aime dériver des sequents")
         .position(viewport_x / 2.0, viewport_y / 2.0)
         .size(50.0)
         .color(color)
