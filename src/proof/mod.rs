@@ -1,7 +1,7 @@
 
 #![allow(dead_code)]
 
-mod rendering;
+pub mod rendering;
 
 type Variable = u32;
 
@@ -13,21 +13,35 @@ pub trait Rule {
     fn check_validity(&self, proof: &Proof) -> bool; 
 }
 
+pub struct NoRule {
+    // No rule yet!
+}
+
+impl Rule for NoRule {
+    fn create_branches(&self, _root: &Sequent) -> Option<Vec<Proof>> {
+        unreachable!();
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        unreachable!();
+    }
+}
+
 /// A proof tree.
 pub struct Proof {
-    root: Sequent,
-    branches: Vec<Proof>,
-    rule: Box<dyn Rule>,
+    pub root: Sequent,
+    pub branches: Vec<Proof>,
+    pub rule: Box<dyn Rule>,
 }
 
 /// A sequent!
 /// 
 /// I used vec for both sides, will be useful if we want to implement other logic systems.
 pub struct Sequent {
-    before: Vec<Formula>,
-    after: Vec<Formula>,
+    pub before: Vec<Formula>,
+    pub after: Vec<Formula>,
 
-    cached_text_section: Option<notan::glyph::Section<'static>>,
+    pub cached_text_section: Option<notan::glyph::Section<'static>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -29,14 +29,18 @@ pub struct ScreenPosition {
 }
 
 impl ScreenPosition {
-    pub fn to_pixel(self, state: &Graphics) -> PixelPosition {
-        let (w, h) = state.size();
+    pub fn to_pixel(self, gfx: &Graphics) -> PixelPosition {
+        let (w, h) = gfx.size();
         let ratio = w as f32 / h as f32;
 
         return PixelPosition {
             x: (h as f32 * 0.5 * (self.x + ratio)).round() as u32,
             y: (h as f32 * 0.5 * (1.0 - self.y)).round() as u32,
         }
+    }
+
+    pub fn new(x: f32, y: f32) -> ScreenPosition {
+        return ScreenPosition { x, y };
     }
 }
 
@@ -48,7 +52,7 @@ pub struct PixelPosition {
 }
 
 impl PixelPosition {
-    pub fn from_couple((x, y): (u32, u32)) -> Self {
+    pub fn from_couple((x, y): (u32, u32)) -> PixelPosition {
         return PixelPosition { x, y };
     }
 
@@ -56,13 +60,21 @@ impl PixelPosition {
         return (self.x, self.y);
     }
 
-    pub fn to_screen(self, state: &Graphics) -> ScreenPosition {
-        let (w, h) = state.size();
+    pub fn as_f32_couple(&self) -> (f32, f32) {
+        return (self.x as f32, self.y as f32);
+    }
+
+    pub fn to_screen(self, gfx: &Graphics) -> ScreenPosition {
+        let (w, h) = gfx.size();
 
         return ScreenPosition {
             x: (self.x as f32 / h as f32) * 2.0 - w as f32,
             y: (self.y as f32 / h as f32) * 2.0 - h as f32,
         }
+    }
+
+    pub fn new(x: u32, y: u32) -> PixelPosition {
+        return PixelPosition { x, y };
     }
 }
 
