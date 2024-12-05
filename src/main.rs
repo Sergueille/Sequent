@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use proof::*;
 use coord::*;
 use notan::prelude::*;
 use notan::draw::*;
@@ -80,12 +81,12 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         .v_align_middle();
     */
     
-    let mut test_proof = proof::Proof {
-        root: proof::Sequent {
+    let mut test_proof = Proof {
+        root: Sequent {
             before: vec![],
             after: vec![
-                proof::Formula::Operator(proof::Operator { 
-                    operator_type: proof::OperatorType::Top,
+                Formula::Operator(Operator { 
+                    operator_type: OperatorType::Top,
                     arg1: None,
                     arg2: None
                 })
@@ -93,12 +94,12 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
             cached_text_section: None,
         },
         branches: vec![],
-        rule: Box::new(proof::NoRule {}),
+        rule: Box::new(NoRule {}),
     };
 
-    proof::rendering::compute_sequent_text_section(&mut test_proof.root, state);
+    rendering::compute_sequent_text_section(&mut test_proof.root, state);
     
-    proof::rendering::draw_proof(&test_proof, ScreenPosition::new(0.0, 0.0), gfx, &mut draw, state);
+    rendering::draw_proof(&test_proof, ScreenPosition::new(0.0, 0.0), gfx, &mut draw, state);
 
     gfx.render(&draw);
 }

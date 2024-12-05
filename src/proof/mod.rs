@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 pub mod rendering;
+pub mod action;
 
 type Variable = u32;
 
