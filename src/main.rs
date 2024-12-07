@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use std::char::ToUppercase;
 use std::collections::HashMap;
 
 use proof::*;
@@ -56,37 +55,37 @@ fn setup(gfx: &mut Graphics) -> State {
 
 fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
     let mut draw = gfx.create_draw();
-    let (viewport_x, viewport_y) = draw.size();
     draw.clear(Color::BLACK);
-
-    let color = Color::from_rgb(
-        test_sine(app, 0.0),
-        test_sine(app, 1.0 / 3.0),
-        test_sine(app, 2.0 / 3.0),
-    );
-
-    /*
-    draw.text(&state.text_font, "J'aime dériver des sequents")
-        .position(viewport_x / 2.0, viewport_y / 2.0)
-        .size(50.0)
-        .color(color)
-        .h_align_center()
-        .v_align_middle();
-    */
     
-    let mut test_proof = Proof {
+    let test_proof = Proof {
         root: Sequent {
-            before: vec![],
+            before: vec![
+                Formula::Operator(Operator { 
+                    operator_type: OperatorType::Not,
+                    arg1: Some(Box::new(
+                        Formula::Variable(3)
+                    )),
+                    arg2: None
+                }),
+                Formula::Variable(0),
+            ],
             after: vec![
                 Formula::Operator(Operator { 
-                    operator_type: OperatorType::And,
-                    arg1: Some(Box::new(Formula::Operator(Operator { operator_type: OperatorType::Top, arg1: None, arg2: None }))),
-                    arg2: Some(Box::new(Formula::Operator(Operator { 
-                        operator_type: OperatorType::Not, 
-                        arg1: Some(Box::new(Formula::Variable(1))),
-                        arg2: None 
-                    })))
-                })
+                    operator_type: OperatorType::Not,
+                    arg1: Some(Box::new(
+                        Formula::Operator(Operator { 
+                            operator_type: OperatorType::And,
+                            arg1: Some(Box::new(Formula::Operator(Operator { operator_type: OperatorType::Top, arg1: None, arg2: None }))),
+                            arg2: Some(Box::new(Formula::Operator(Operator { 
+                                operator_type: OperatorType::Not, 
+                                arg1: Some(Box::new(Formula::Variable(1))),
+                                arg2: None 
+                            })))
+                        })
+                    )),
+                    arg2: None
+                }),
+                Formula::Variable(0),
             ],
             cached_text_section: None,
         },
@@ -94,11 +93,11 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         rule: Box::new(NoRule {}),
     };
 
-    println!("{}", proof::rendering::get_proof_width(&test_proof, &state, &gfx));
+    let w = rendering::get_sequent_width(&test_proof.root, state, gfx);
 
-    rendering::draw_formula(
-        &test_proof.root.after[0], 
-        ScreenPosition { x: 0.0, y: 0.0 }, 
+    rendering::draw_sequent(
+        &test_proof.root, 
+        ScreenPosition { x: -w * 0.5, y: 0.0 }, 
         gfx, 
         &mut draw, 
         state

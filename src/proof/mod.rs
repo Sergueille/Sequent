@@ -93,6 +93,19 @@ fn get_operator_symbol(op: OperatorType) -> &'static str {
     }
 }
 
+/// Smaller number means more priority. Use 0 for constants.
+fn get_operator_priority(op: OperatorType) -> f32 {
+    match op {
+        OperatorType::Not => 1.0,
+        OperatorType::Impl => 3.0,
+        OperatorType::And => 2.0,
+        OperatorType::Or => 2.0,
+        OperatorType::Top => 0.0,
+        OperatorType::Bottom => 0.0,
+        OperatorType::LastValue => unreachable!(),
+    }
+}
+
 /// Create operator with NotCompleted
 fn create_uncompleted_operator(op: OperatorType, next_index: &mut u32) -> Formula {
     let arity = get_operator_arity(op);
