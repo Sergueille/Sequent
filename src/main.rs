@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::collections::HashMap;
+
 use proof::*;
 use coord::*;
 use notan::prelude::*;
@@ -11,9 +13,9 @@ mod coord;
 
 #[derive(AppState)]
 struct State {
-    text_font: notan::glyph::ab_glyph::FontVec,
-    symbol_font: notan::glyph::ab_glyph::FontVec,
-    text_calculator: notan::text::Calculator,
+    text_font: Font,
+    symbol_font: Font,
+    cached_sizes: HashMap<char, f32>,
 }
 
 #[notan_main]
@@ -36,28 +38,18 @@ fn main() -> Result<(), String> {
 }
 
 fn setup(gfx: &mut Graphics) -> State {
-    /*
     let font = gfx
         .create_font(include_bytes!("../assets/fonts/cmunrm.ttf"))
         .unwrap();
-    */
 
-    let font_data = include_bytes!("../assets/fonts/cmunrm.ttf").to_vec();
-    let font = notan::glyph::ab_glyph::FontVec::try_from_vec(font_data).expect("Unable to read font!");
-
-    /*
     let symbol_font = gfx
         .create_font(include_bytes!("../assets/fonts/JuliaMono.ttf"))
         .unwrap();
-    */
-
-    let symbol_font_data = include_bytes!("../assets/fonts/JuliaMono.ttf").to_vec();
-    let symbol_font = notan::glyph::ab_glyph::FontVec::try_from_vec(symbol_font_data).expect("Unable to read font!");
 
     State {
         text_font: font,
         symbol_font, 
-        text_calculator: notan::text::Calculator::new(),
+        cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
     }
 }
 
@@ -97,9 +89,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         rule: Box::new(NoRule {}),
     };
 
-    rendering::compute_sequent_text_section(&mut test_proof.root, state);
-    
-    rendering::draw_proof(&test_proof, ScreenPosition::new(0.0, 0.0), gfx, &mut draw, state);
+    println!("{}", proof::rendering::get_proof_width(&test_proof, &state));
 
     gfx.render(&draw);
 }

@@ -47,7 +47,7 @@ pub struct Sequent {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OperatorType {
-    Not, Impl, And, Or, Top, Bottom,
+    Not, Impl, And, Or, Top, Bottom, LastValue
 }
 
 /// arg1 and arg2 are None if the arity is 0 or 1.
@@ -77,6 +77,7 @@ fn get_operator_arity(op: OperatorType) -> u32 {
         OperatorType::Or => 2,
         OperatorType::Top => 0,
         OperatorType::Bottom => 0,
+        OperatorType::LastValue => unreachable!(),
     }
 }
 
@@ -88,6 +89,7 @@ fn get_operator_symbol(op: OperatorType) -> &'static str {
         OperatorType::Or => "∨",
         OperatorType::Top => "⊤",
         OperatorType::Bottom => "⊥",
+        OperatorType::LastValue => unreachable!(),
     }
 }
 

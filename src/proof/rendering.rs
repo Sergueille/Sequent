@@ -1,150 +1,103 @@
 
+use std::collections::HashMap;
+
 use crate::proof::*;
-use crate::coord::*;
 use crate::State;
 
-use notan::draw::DrawCustomPipeline;
-use notan::draw::DrawImages;
-use notan::glyph;
-use notan::glyph::DefaultGlyphPipeline;
-use notan::glyph::GlyphBrush;
-use notan::glyph::Section;
-use notan::prelude::*;
-
+// Screen units
 pub const PROOF_MARGIN: f32 = 2e-3;
 pub const FIELD_SIZE: f32 = 5e-3;
 pub const TEXT_SCALE: f32 = 20.0;
 pub const LINE_HEIGHT: f32 = 10e-3;
+pub const OPERATOR_MARGIN: f32 = 2e-3;
 
-// OPTI: getting the width of the proofs many times before rendering (in the dumbest possible way)
-//       maybe it is slow (idk if it is cached by notan)
+pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
 
-pub fn draw_proof(proof: &Proof, position: ScreenPosition, gfx: &mut Graphics, draw: &mut notan::draw::Draw, state: &State) { 
-    let mut brush: glyph::GlyphBrush<&glyph::ab_glyph::FontVec> = 
-        glyph::GlyphBrushBuilder::using_fonts(vec![
-            &state.text_font,
-            &state.symbol_font,
-        ]).build(gfx);
+/// Letters used for variables, in order
+pub const VARIABLE_LETTERS: &str = "ABCDEFGHIJ";
 
-    _queue_proof_text(proof, position, &mut brush, gfx);
 
-    // TEST
-    brush.queue(
-        Section::new().add_text(
-            glyph::Text::new("Test")
-                .with_color((10.0, 1.0, 1.0, 1.0))
-                .with_scale(200.0)
-                .with_font_id(glyph::FontId(1))
-        )
-            .with_screen_position((1.0, 1.0))
-    );
+pub fn get_proof_width(p: &Proof, state: &State) -> f32 {
+    let mut top_sum = if p.branches.len() > 0 { (p.branches.len() - 1) as f32 * PROOF_MARGIN } else { 0.0 };
 
-    let mut pipeline = DefaultGlyphPipeline::new(gfx).unwrap();
-    brush.render_queue(&mut gfx.device, &mut pipeline);
-}
-
-fn _queue_proof_text(proof: &Proof, position: ScreenPosition, brush: &mut GlyphBrush<&glyph::ab_glyph::FontVec>, gfx: &mut Graphics) {
-    let root_section = 
-        proof.root.cached_text_section.as_ref()
-        .expect("Missing text section on sequent!")
-        .clone() // OPTI
-        .with_screen_position(position.to_pixel(gfx).as_f32_couple());
-
-    brush.queue(root_section);
-}
-
-pub fn get_proof_width(proof: &Proof, graphics: &mut Graphics, state: &mut State) -> f32 {
-    let mut top_len_sum = 0.0;
-    for (i, p) in proof.branches.iter().enumerate() {
-        if i != 0 {
-            top_len_sum = PROOF_MARGIN;
-        }
-
-        top_len_sum += get_proof_width(p, graphics, state);
+    for proof in p.branches.iter() {
+        top_sum += get_proof_width(&proof, &state);
     }
 
-    let bottom_sum = state.text_calculator.bounds(
-        &proof.root.cached_text_section.as_ref()
-            .expect("Missing text section on sequent!")
-    ).width;
-
-    return f32::max(top_len_sum, bottom_sum);
+    return f32::max(top_sum, get_sequent_width(&p.root, &state));
 }
 
-pub fn compute_sequent_text_section<'a>(seq: &'a mut Sequent, state: &State) -> &'a glyph::Section<'static> {
-    let mut section = glyph::Section::new().with_layout(
-        notan::glyph::Layout::default()
-            .v_align(glyph::VerticalAlign::Top)
-            .h_align(glyph::HorizontalAlign::Center)
-    );
 
-    for (i, formula) in seq.before.iter().enumerate() {
-        if i != 0 {
-            section = section.add_text(
-                glyph::Text::new(", ")
-                    // .with_font_id(state.text_font)
-                    .with_scale(TEXT_SCALE)
-            );
-        }
+pub fn get_sequent_width(s: &Sequent, state: &State) -> f32 {
+    let mut sum = get_character_width('⊢', &state);
+    sum += 2.0 * OPERATOR_MARGIN;
 
-        section = _add_formula_text(&formula, section, state);
+    for f in s.before.iter().chain(s.after.iter()) {
+        sum += get_formula_width(&f, &state);
     }
 
-    section = section.add_text(
-        glyph::Text::new(" ⊢ ")
-            // .with_font_id(state.symbol_font)
-            .with_scale(TEXT_SCALE)
-    );
-
-    for (i, formula) in seq.after.iter().enumerate() {
-        if i != 0 {
-            section = section.add_text(
-                glyph::Text::new(", ")
-                    // .with_font_id(state.text_font)
-                    .with_scale(TEXT_SCALE)
-            );
-        }
-
-        section = _add_formula_text(&formula, section, state);
-    }
-
-    seq.cached_text_section = Some(section);
-
-    return &seq.cached_text_section.as_ref().unwrap();
+    return sum;
 }
 
-fn _add_formula_text<'a>(f: &Formula, section: glyph::Section<'a>, state: &State) -> glyph::Section<'a> {
-    return match f {
+
+pub fn get_formula_width(f: &Formula, state: &State) -> f32 {
+    match f {
         Formula::Operator(operator) => {
-            let symbol = get_operator_symbol(operator.operator_type);
-            let arity = get_operator_arity(operator.operator_type);
-            let mut new_sect = section;
+            let mut sum = get_character_width(get_operator_symbol(operator.operator_type).chars().next().unwrap(), &state);
+            sum += get_operator_arity(operator.operator_type) as f32 * OPERATOR_MARGIN;
 
-            if arity == 2 {
-                new_sect = _add_formula_text(operator.arg1.as_ref().unwrap(), new_sect, state);
-            }
-
-            new_sect = new_sect.add_text(
-                glyph::Text::new(symbol)
-                    // .with_font_id(state.symbol_font)
-                    .with_scale(TEXT_SCALE)
-            );
-
-            if arity > 0 {
-                let arg = if arity == 2 { &operator.arg2 } else { &operator.arg1 };
-                new_sect = _add_formula_text(arg.as_ref().unwrap(), new_sect, state);
-            }
-
-            new_sect
+            if operator.arg1.is_some() { sum += get_formula_width(operator.arg1.as_ref().unwrap(), &state); }
+            if operator.arg2.is_some() { sum += get_formula_width(operator.arg2.as_ref().unwrap(), &state); }
+            
+            return sum;
         },
-        Formula::Variable(_) => {
-            let s = "A"; // TEST
-            section.add_text(glyph::Text::new(s)/*.with_font_id(state.text_font)*/.with_scale(TEXT_SCALE))
+        Formula::Variable(id) => {
+            return get_character_width(VARIABLE_LETTERS.chars().nth(*id as usize).unwrap(), &state);
         },
         Formula::NotCompleted(_) => {
-            let s = "_"; // HACK: find way to insert other thing
-            section.add_text(glyph::Text::new(s)/*.with_font_id(state.text_font)*/.with_scale(TEXT_SCALE))
+            return FIELD_SIZE;
         },
-    };
+    }
+}
+
+pub fn get_character_width(char: char, state: &State) -> f32 {
+    match state.cached_sizes.get(&char) {
+        Some(w) => *w,
+        None => panic!("Unknown char width. Add it to SYMBOLS constant!"),
+    }
+}
+
+
+/// Computes the width of the chars
+pub fn compute_char_sizes(text_font: &notan::text::Font, symbol_font: &notan::text::Font) -> HashMap<char, f32> {
+    let mut res = HashMap::new();
+
+    let mut calculator = notan::text::Calculator::new();
+
+    fn insert_char(c: char, font: &notan::text::Font, res: &mut HashMap<char, f32>, calculator: &mut notan::text::Calculator) {
+        let str = String::from(c);
+
+        let section = notan::glyph::Section::new().add_text(
+            notan::glyph::Text::new(&str)
+                .with_scale(TEXT_SCALE) // TODO: set font
+                .with_font_id(font)
+
+        );
+
+        res.insert(
+            c,
+            calculator.bounds(&section).width
+        );
+    }
+
+    for c in 'A'..'Z' {
+        insert_char(c, text_font, &mut res, &mut calculator)
+    }
+
+    for c in SYMBOLS.chars() {
+        insert_char(c, symbol_font, &mut res, &mut calculator)
+    }
+
+    return res;
 }
 
