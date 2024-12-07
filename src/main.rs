@@ -56,7 +56,14 @@ fn setup(gfx: &mut Graphics) -> State {
 fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
     let mut draw = gfx.create_draw();
     draw.clear(Color::BLACK);
-    
+
+    // Draw FPS
+    draw.text(&state.text_font, &format!("{}ms / {}FPS", app.timer.delta().as_millis(), app.timer.fps().round()))
+        .position(2.0, 2.0)
+        .size(20.0)
+        .v_align_top()
+        .h_align_left();
+        
     let test_proof = Proof {
         root: Sequent {
             before: vec![
@@ -97,7 +104,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
 
     rendering::draw_sequent(
         &test_proof.root, 
-        ScreenPosition { x: -w * 0.5, y: 0.0 }, 
+        ScreenPosition { x: -w * 0.5, y: test_sine(app, 0.0) * 0.1 }, 
         gfx, 
         &mut draw, 
         state
