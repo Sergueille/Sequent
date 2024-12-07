@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use std::char::ToUppercase;
 use std::collections::HashMap;
 
 use proof::*;
@@ -78,9 +79,13 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
             before: vec![],
             after: vec![
                 Formula::Operator(Operator { 
-                    operator_type: OperatorType::Top,
-                    arg1: None,
-                    arg2: None
+                    operator_type: OperatorType::And,
+                    arg1: Some(Box::new(Formula::Operator(Operator { operator_type: OperatorType::Top, arg1: None, arg2: None }))),
+                    arg2: Some(Box::new(Formula::Operator(Operator { 
+                        operator_type: OperatorType::Not, 
+                        arg1: Some(Box::new(Formula::Variable(1))),
+                        arg2: None 
+                    })))
                 })
             ],
             cached_text_section: None,
@@ -89,7 +94,15 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         rule: Box::new(NoRule {}),
     };
 
-    println!("{}", proof::rendering::get_proof_width(&test_proof, &state));
+    println!("{}", proof::rendering::get_proof_width(&test_proof, &state, &gfx));
+
+    rendering::draw_formula(
+        &test_proof.root.after[0], 
+        ScreenPosition { x: 0.0, y: 0.0 }, 
+        gfx, 
+        &mut draw, 
+        state
+    );
 
     gfx.render(&draw);
 }
