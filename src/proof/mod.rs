@@ -14,6 +14,7 @@ pub trait Rule {
     fn check_validity(&self, proof: &Proof) -> bool; 
 }
 
+#[derive(Clone)]
 pub struct NoRule {
     // No rule yet!
 }
@@ -29,15 +30,17 @@ impl Rule for NoRule {
 }
 
 /// A proof tree.
-pub struct Proof {
+#[derive(Clone)]
+pub struct Proof<'a> {
     pub root: Sequent,
-    pub branches: Vec<Proof>,
-    pub rule: Box<dyn Rule>,
+    pub branches: Vec<Proof<'a>>,
+    pub rule: &'a dyn Rule,
 }
 
 /// A sequent!
 /// 
 /// I used vec for both sides, will be useful if we want to implement other logic systems.
+#[derive(Clone)]
 pub struct Sequent {
     pub before: Vec<Formula>,
     pub after: Vec<Formula>,

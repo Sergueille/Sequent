@@ -63,8 +63,10 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         .size(20.0)
         .v_align_top()
         .h_align_left();
+
+    let no_rule = NoRule {};
         
-    let test_proof = Proof {
+    let mut test_proof = Proof {
         root: Sequent {
             before: vec![
                 Formula::Operator(Operator { 
@@ -97,14 +99,18 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
             cached_text_section: None,
         },
         branches: vec![],
-        rule: Box::new(NoRule {}),
+        rule: &no_rule,
     };
 
-    let w = rendering::get_sequent_width(&test_proof.root, state, gfx);
+    let copy_1 = test_proof.clone();
+    let copy_2 = test_proof.clone();
+    test_proof.branches = vec![copy_1, copy_2];
 
-    rendering::draw_sequent(
-        &test_proof.root, 
-        ScreenPosition { x: -w * 0.5, y: test_sine(app, 0.0) * 0.1 }, 
+    let w = rendering::get_proof_width(&test_proof, state, gfx);
+
+    rendering::draw_proof(
+        &test_proof, 
+        ScreenPosition { x: -w * 0.5, y: -0.8 }, 
         gfx, 
         &mut draw, 
         state
@@ -113,7 +119,4 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
     gfx.render(&draw);
 }
 
-fn test_sine(app: &App, phase: f32) -> f32 {
-    return f32::sin(app.timer.elapsed().as_secs_f32() * 5.0 + phase * 2.0 * std::f32::consts::PI) * 0.5 + 0.5;
-}
 

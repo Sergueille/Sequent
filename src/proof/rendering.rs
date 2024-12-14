@@ -8,18 +8,57 @@ use notan::prelude::*;
 use notan::draw::*;
 
 // Screen units
-pub const PROOF_MARGIN: f32 = 50e-3;
+pub const PROOF_MARGIN: f32 = 100e-3;
 pub const SEQUENT_MARGIN: f32 = 30e-3;
 pub const COMMA_MARGIN: f32 = 10e-3;
 pub const FIELD_SIZE: f32 = 70e-3;
 pub const TEXT_SCALE: f32 = 50.0;
-pub const LINE_HEIGHT: f32 = 90e-3;
+pub const LINE_HEIGHT: f32 = 120e-3;
+pub const BAR_HEIGHT: f32 = 5e-3;
+pub const PAR_POSITION: f32 = 100e-3;
 pub const OPERATOR_MARGIN: f32 = 10e-3;
 
 pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
 
 /// Letters used for variables, in order
 pub const VARIABLE_LETTERS: &str = "AZERTYUIOP";
+
+
+pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, gfx: &mut Graphics, draw: &mut Draw, state: &State) {
+    let branches_width = get_proof_branches_width(p, state, gfx);
+    let root_width = get_sequent_width(&p.root, state, gfx);
+    let total_width = f32::max(branches_width, root_width);
+
+    let root_left_space = (total_width - root_width) * 0.5;
+
+    let mut pos = bottom_left;
+    pos.x += root_left_space;
+
+    draw_sequent(&p.root, pos, gfx, draw, state);
+
+    // Draw bar
+    let mut bl_pos = bottom_left;
+    bl_pos.y += PAR_POSITION;
+
+    let mut tr_pos = bl_pos.clone();
+    tr_pos.x += total_width;
+    tr_pos.y += BAR_HEIGHT;
+
+    draw.rect(bl_pos.to_pixel(gfx).as_f32_couple(), tr_pos.to_pixel(gfx).difference_with_f32(bl_pos.to_pixel(gfx)))
+        .color(Color::from_hex(0xffffffff));
+
+    let top_left_space = (total_width - branches_width) * 0.5;
+    pos = bottom_left;
+    pos.x += top_left_space;
+    pos.y += LINE_HEIGHT;
+
+    for child in p.branches.iter() {
+        draw_proof(&child, pos, gfx, draw, state);
+
+        pos.x += get_proof_width(child, state, gfx);
+        pos.x += PROOF_MARGIN;
+    }
+}
 
 
 pub fn draw_sequent(s: &Sequent, bottom_left: ScreenPosition, gfx: &mut Graphics, draw: &mut Draw, state: &State) {
@@ -119,13 +158,18 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, gfx: &mut Graphics
 
 
 pub fn get_proof_width(p: &Proof, state: &State, gfx: &Graphics) -> f32 {
-    let mut top_sum = if p.branches.len() > 0 { (p.branches.len() - 1) as f32 * PROOF_MARGIN } else { 0.0 };
+    return f32::max(get_proof_branches_width(p, state, gfx), get_sequent_width(&p.root, &state, &gfx));
+}
+
+
+fn get_proof_branches_width(p: &Proof, state: &State, gfx: &Graphics) -> f32 {
+    let mut sum = if p.branches.len() > 0 { (p.branches.len() - 1) as f32 * PROOF_MARGIN } else { 0.0 };
 
     for proof in p.branches.iter() {
-        top_sum += get_proof_width(&proof, &state, &gfx);
+        sum += get_proof_width(&proof, &state, &gfx);
     }
 
-    return f32::max(top_sum, get_sequent_width(&p.root, &state, &gfx));
+    return sum;
 }
 
 
