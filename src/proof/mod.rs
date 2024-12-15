@@ -15,27 +15,12 @@ pub trait Rule {
     fn check_validity(&self, proof: &Proof) -> bool; 
 }
 
-#[derive(Clone)]
-pub struct NoRule {
-    // No rule yet!
-}
-
-impl Rule for NoRule {
-    fn create_branches(&self, _root: &Sequent) -> Option<Vec<Proof>> {
-        unreachable!();
-    }
-
-    fn check_validity(&self, _proof: &Proof) -> bool {
-        unreachable!();
-    }
-}
-
 /// A proof tree.
 #[derive(Clone)]
 pub struct Proof<'a> {
     pub root: Sequent,
     pub branches: Vec<Proof<'a>>,
-    pub rule: &'a dyn Rule,
+    pub rule: Option<&'a dyn Rule>,
 }
 
 /// A sequent!

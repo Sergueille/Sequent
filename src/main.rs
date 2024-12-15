@@ -7,21 +7,38 @@ use calcul::*;
 use coord::*;
 use notan::prelude::*;
 use notan::draw::*;
+use rendering::draw_proof;
+use rendering::get_proof_width;
 
 mod proof;
 mod coord;
 
+/// Current global state of the game.
+enum GameMode<'a> {
+    Ingame(GameState<'a>),
+}
+
+
+struct GameState<'a> {
+    proof: Proof<'a>,
+    editing_formulas: bool,
+
+    /// ID of the current focused formula field
+    formulas_position: u32,
+}
+
 
 #[derive(AppState)]
-struct State {
+struct State<'a> {
     text_font: Font,
     symbol_font: Font,
     cached_sizes: HashMap<char, f32>,
+    rules: Vec<Box<dyn Rule>>,
+    mode: GameMode<'a>
 }
 
 #[notan_main]
 fn main() -> Result<(), String> {
-
     calculation_test();
 
     // Get backtraces
@@ -41,7 +58,7 @@ fn main() -> Result<(), String> {
         .build();
 }
 
-fn setup(gfx: &mut Graphics) -> State {
+fn setup<'a>(gfx: &mut Graphics) -> State<'a> {
     let font = gfx
         .create_font(include_bytes!("../assets/fonts/cmunrm.ttf"))
         .unwrap();
@@ -50,11 +67,31 @@ fn setup(gfx: &mut Graphics) -> State {
         .create_font(include_bytes!("../assets/fonts/JuliaMono.ttf"))
         .unwrap();
 
-    State {
+    let rules: Vec<Box<dyn Rule>> = vec![];
+
+    let test_proof = Proof {
+        root: Sequent {
+            before: vec![],
+            after: vec![
+                Formula::NotCompleted(0),
+            ],
+            cached_text_section: None,
+        },
+        branches: vec![],
+        rule: None,
+    };
+
+    return State {
         text_font: font,
         symbol_font, 
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
-    }
+        rules,
+        mode: GameMode::Ingame(GameState {
+            proof: test_proof,
+            editing_formulas: true,
+            formulas_position: 0
+        })
+    };
 }
 
 fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
@@ -68,63 +105,32 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         .v_align_top()
         .h_align_left();
 
-    let no_rule = NoRule {};
-        
-    let mut test_proof = Proof {
-        root: Sequent {
-            before: vec![
-                Formula::Operator(Operator { 
-                    operator_type: OperatorType::Not,
-                    arg1: Some(Box::new(
-                        Formula::Variable(3)
-                    )),
-                    arg2: None
-                }),
-                Formula::Variable(0),
-            ],
-            after: vec![
-                Formula::Operator(Operator { 
-                    operator_type: OperatorType::Not,
-                    arg1: Some(Box::new(
-                        Formula::Operator(Operator { 
-                            operator_type: OperatorType::And,
-                            arg1: Some(Box::new(Formula::Operator(Operator { operator_type: OperatorType::Top, arg1: None, arg2: None }))),
-                            arg2: Some(Box::new(Formula::Operator(Operator { 
-                                operator_type: OperatorType::Not, 
-                                arg1: Some(Box::new(Formula::Variable(1))),
-                                arg2: None 
-                            })))
-                        })
-                    )),
-                    arg2: None
-                }),
-                Formula::Variable(0),
-            ],
-            cached_text_section: None,
-        },
-        branches: vec![],
-        rule: &no_rule,
-    };
+    match &mut state.mode {
+        GameMode::Ingame(game_state) => {
+            let mut render_info = proof::rendering::RenderInfo {
+                draw: &mut draw,
+                gfx,
+                text_font: &state.text_font,
+                symbol_font: &state.symbol_font,
+                cached_sizes: &state.cached_sizes,
+                focused_formula_field: game_state.formulas_position
+            };
 
-    let copy_1 = test_proof.clone();
-    let copy_2 = test_proof.clone();
-    test_proof.branches = vec![copy_1, copy_2];
+            let proof_width = get_proof_width(&game_state.proof, &mut render_info);
+            let position = ScreenPosition {
+                x: -proof_width * 0.5,
+                y: -0.7,
+            };
 
-    let w = rendering::get_proof_width(&test_proof, state, gfx);
-
-    rendering::draw_proof(
-        &test_proof, 
-        ScreenPosition { x: -w * 0.5, y: -0.8 }, 
-        gfx, 
-        &mut draw, 
-        state
-    );
+            draw_proof(&game_state.proof, position, &mut render_info);
+        }
+    }
 
     gfx.render(&draw);
 }
 
 
-fn calculation_test(){
+fn calculation_test() {
     let seq = Sequent {
         before: vec![],
         after: vec![
