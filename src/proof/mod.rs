@@ -3,6 +3,7 @@
 
 pub mod rendering;
 pub mod action;
+pub mod calcul;
 
 type Variable = u32;
 

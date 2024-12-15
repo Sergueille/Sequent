@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use proof::*;
+use calcul::*;
 use coord::*;
 use notan::prelude::*;
 use notan::draw::*;
@@ -20,6 +21,9 @@ struct State {
 
 #[notan_main]
 fn main() -> Result<(), String> {
+
+    calculation_test();
+
     // Get backtraces
     std::env::set_var("RUST_BACKTRACE", "1");
 
@@ -120,3 +124,21 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
 }
 
 
+fn calculation_test(){
+    let seq = Sequent {
+        before: vec![],
+        after: vec![
+            Formula::Operator(Operator {
+                operator_type: OperatorType::Or,
+                arg1: Some(Box::new(Formula::Operator(Operator { 
+                    operator_type: OperatorType::Not, 
+                    arg1: Some(Box::new(Formula::Variable(1))), arg2: None }))),
+                    arg2: Some(Box::new(Formula::Variable(1))),
+            })
+        ],
+        cached_text_section: None,
+    };
+    let test = proof_or_fake(seq);
+
+    println!("seq = {}", test);
+}
