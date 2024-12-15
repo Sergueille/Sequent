@@ -32,7 +32,8 @@ pub struct RenderInfo<'a> {
     pub text_font: &'a Font,
     pub symbol_font: &'a Font,
     pub cached_sizes: &'a HashMap<char, f32>,
-    pub focused_formula_field: u32
+    pub focused_formula_field: u32,
+    pub editing_formulas: bool,
 }
 
 
@@ -166,7 +167,11 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
             draw_text(&VARIABLE_LETTERS.chars().nth(*id as usize).unwrap().to_string(), bottom_left, info.text_font, info);
         },
         Formula::NotCompleted(id) => {
-            let color = if *id == info.focused_formula_field { FOCUSED_FILED_COLOR } else { FILED_COLOR };
+            let color = if info.editing_formulas && *id == info.focused_formula_field { 
+                FOCUSED_FILED_COLOR 
+            } else { 
+                FILED_COLOR 
+            };
 
             let bl = bottom_left.to_pixel(info.gfx).as_f32_couple();
             let mut top_right = bottom_left.clone();

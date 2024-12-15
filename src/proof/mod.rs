@@ -2,7 +2,6 @@
 #![allow(dead_code)]
 
 pub mod rendering;
-pub mod action;
 pub mod calcul;
 
 type Variable = u32;
@@ -23,6 +22,7 @@ pub struct Proof<'a> {
     pub rule: Option<&'a dyn Rule>,
 }
 
+
 /// A sequent!
 /// 
 /// I used vec for both sides, will be useful if we want to implement other logic systems.
@@ -36,7 +36,7 @@ pub struct Sequent {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OperatorType {
-    Not, Impl, And, Or, Top, Bottom, LastValue
+    Not, Impl, And, Or, Top, Bottom
 }
 
 /// arg1 and arg2 are None if the arity is 0 or 1.
@@ -58,6 +58,11 @@ pub enum Formula {
     NotCompleted(u32),
 }
 
+pub struct LogicSystem {
+    pub operators: Vec<OperatorType>,
+    pub rules: Vec<Box<dyn Rule>>,
+}
+
 fn get_operator_arity(op: OperatorType) -> u32 {
     match op {
         OperatorType::Not => 1,
@@ -66,7 +71,6 @@ fn get_operator_arity(op: OperatorType) -> u32 {
         OperatorType::Or => 2,
         OperatorType::Top => 0,
         OperatorType::Bottom => 0,
-        OperatorType::LastValue => unreachable!(),
     }
 }
 
@@ -78,7 +82,6 @@ fn get_operator_symbol(op: OperatorType) -> &'static str {
         OperatorType::Or => "∨",
         OperatorType::Top => "⊤",
         OperatorType::Bottom => "⊥",
-        OperatorType::LastValue => unreachable!(),
     }
 }
 
@@ -91,12 +94,11 @@ fn get_operator_priority(op: OperatorType) -> f32 {
         OperatorType::Or => 2.0,
         OperatorType::Top => 0.0,
         OperatorType::Bottom => 0.0,
-        OperatorType::LastValue => unreachable!(),
     }
 }
 
 /// Create operator with NotCompleted
-fn create_uncompleted_operator(op: OperatorType, next_index: &mut u32) -> Formula {
+pub fn create_uncompleted_operator(op: OperatorType, next_index: &mut u32) -> Formula {
     let arity = get_operator_arity(op);
 
     let res = Formula::Operator(Operator {
@@ -110,4 +112,55 @@ fn create_uncompleted_operator(op: OperatorType, next_index: &mut u32) -> Formul
     return res;
 }
 
+pub fn insert_formula_in_proof(p: &mut Proof, field_index: u32, formula_to_insert: &Formula) -> bool {
+    let ok = insert_formula_in_sequent(&mut p.root, field_index, formula_to_insert);
+    if ok { return true; }
 
+    for branch in p.branches.iter_mut() {
+        let ok = insert_formula_in_proof(branch, field_index, formula_to_insert);
+        if ok { return true; }
+    }
+
+    return false;
+}
+
+pub fn insert_formula_in_sequent(s: &mut Sequent, field_index: u32, formula_to_insert: &Formula) -> bool {
+    for f in s.before.iter_mut() {
+        let ok = insert_formula_in_formula(f, field_index, formula_to_insert);
+        if ok { return false; }
+    }
+    
+    for f in s.after.iter_mut() {
+        let ok = insert_formula_in_formula(f, field_index, formula_to_insert);
+        if ok { return false; }
+    }
+
+    return false;
+}
+
+pub fn insert_formula_in_formula(f: &mut Formula, field_index: u32, formula_to_insert: &Formula) -> bool {
+    match f {
+        Formula::Operator(operator) => {
+            if operator.arg1.is_some() {
+                let ok = insert_formula_in_formula(operator.arg1.as_mut().unwrap(), field_index, formula_to_insert);
+                if ok { return true; }
+            }
+            
+            if operator.arg2.is_some() {
+                let ok = insert_formula_in_formula(operator.arg2.as_mut().unwrap(), field_index, formula_to_insert);
+                if ok { return true; }
+            }
+
+            return false;
+        },
+        Formula::Variable(_) => { return false; },
+        Formula::NotCompleted(id) => {
+            if field_index == *id {
+                *f = formula_to_insert.clone();
+                return true;
+            }
+
+            return false;
+        },
+    }
+}

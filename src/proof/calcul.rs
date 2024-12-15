@@ -137,9 +137,6 @@ fn step_one_calc(queue: &mut Vec<SequentCalc>) -> Option<bool>{
                             queue.push(seq);
                             None
                         }
-                        OperatorType::LastValue => {
-                            None
-                        }
                     }
                 },
                 Formula::Variable(_variable) => {
@@ -222,9 +219,6 @@ fn step_one_calc(queue: &mut Vec<SequentCalc>) -> Option<bool>{
                                 OperatorType::Top | OperatorType::Bottom => {
                                     seq.after_var.push(formula);
                                     queue.push(seq);
-                                    None
-                                }
-                                OperatorType::LastValue => {
                                     None
                                 }
                             }

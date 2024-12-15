@@ -12,6 +12,7 @@ use rendering::get_proof_width;
 
 mod proof;
 mod coord;
+mod action;
 
 /// Current global state of the game.
 enum GameMode<'a> {
@@ -20,11 +21,15 @@ enum GameMode<'a> {
 
 
 struct GameState<'a> {
+    logic_system: LogicSystem,
     proof: Proof<'a>,
     editing_formulas: bool,
 
     /// ID of the current focused formula field
     formulas_position: u32,
+
+    /// Next id that will be assigned to empty fields, to make sure they are unique. This means all fields in proof will have an id below this .
+    next_formula_index: u32,
 }
 
 
@@ -33,8 +38,8 @@ struct State<'a> {
     text_font: Font,
     symbol_font: Font,
     cached_sizes: HashMap<char, f32>,
-    rules: Vec<Box<dyn Rule>>,
-    mode: GameMode<'a>
+    mode: GameMode<'a>,
+    bindings: HashMap<action::Action, KeyCode>,
 }
 
 #[notan_main]
@@ -67,8 +72,6 @@ fn setup<'a>(gfx: &mut Graphics) -> State<'a> {
         .create_font(include_bytes!("../assets/fonts/JuliaMono.ttf"))
         .unwrap();
 
-    let rules: Vec<Box<dyn Rule>> = vec![];
-
     let test_proof = Proof {
         root: Sequent {
             before: vec![],
@@ -81,16 +84,23 @@ fn setup<'a>(gfx: &mut Graphics) -> State<'a> {
         rule: None,
     };
 
+    let logic_system = LogicSystem {
+        operators: vec![OperatorType::Not, OperatorType::And, OperatorType::Or, OperatorType::Impl, OperatorType::Top, OperatorType::Bottom],
+        rules: vec![],
+    };
+
     return State {
         text_font: font,
         symbol_font, 
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
-        rules,
         mode: GameMode::Ingame(GameState {
+            logic_system,
             proof: test_proof,
             editing_formulas: true,
-            formulas_position: 0
-        })
+            formulas_position: 0,
+            next_formula_index: 1
+        }),
+        bindings: action::get_default_bindings(),
     };
 }
 
@@ -113,8 +123,20 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
                 text_font: &state.text_font,
                 symbol_font: &state.symbol_font,
                 cached_sizes: &state.cached_sizes,
-                focused_formula_field: game_state.formulas_position
+                focused_formula_field: game_state.formulas_position,
+                editing_formulas: game_state.editing_formulas
             };
+
+            if game_state.editing_formulas {
+                for (i, op) in game_state.logic_system.operators.iter().enumerate() {
+                    if action::was_pressed(action::Action::Operation(i as u32), &state.bindings, app) {
+                        let next_focus = game_state.next_formula_index;
+                        let to_insert = proof::create_uncompleted_operator(*op, &mut game_state.next_formula_index);
+                        proof::insert_formula_in_proof(&mut game_state.proof, game_state.formulas_position, &to_insert);
+                        game_state.formulas_position = next_focus;
+                    } 
+                }
+            }
 
             let proof_width = get_proof_width(&game_state.proof, &mut render_info);
             let position = ScreenPosition {
