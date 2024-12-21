@@ -6,6 +6,8 @@ pub mod calcul;
 
 type Variable = u32;
 
+pub const MAX_VARIABLE_COUNT: u32 = 8;
+
 /// Each rule will be a dedicated type that implement this.
 pub trait Rule {
     /// Create proof template from the sequent. Returns None if not compatible.
@@ -55,7 +57,14 @@ pub enum Formula {
     
     /// Corresponds to a zone that need to be completed by the player
     /// Blank spaces in formula have their own id. If will be used to place the cursor of the user.
-    NotCompleted(u32),
+    NotCompleted(FormulaField),
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct FormulaField {
+    pub id: u32,
+    pub next_id: u32,
+    pub prev_id: u32,
 }
 
 pub struct LogicSystem {
@@ -97,70 +106,162 @@ fn get_operator_priority(op: OperatorType) -> f32 {
     }
 }
 
-/// Create operator with NotCompleted
-pub fn create_uncompleted_operator(op: OperatorType, next_index: &mut u32) -> Formula {
+/// Create a variable, then places it in field with field_id. Returns the id of the next field to be focused, if there is any left. 
+pub fn place_variable(var: Variable, field_id: u32, proof: &mut Proof) -> Option<u32> {
+    let field_formula = search_field_id_in_proof(proof, Some(field_id)).unwrap();
+    let field = formula_as_field(field_formula).clone();
+
+    let new_formula = Formula::Variable(var);
+
+    *field_formula = new_formula;
+
+    if field.next_id == field_id {
+        return None;
+    }
+    else {
+        formula_as_field(search_field_id_in_proof(proof, Some(field.prev_id)).unwrap()).next_id = field.next_id;
+        formula_as_field(search_field_id_in_proof(proof, Some(field.next_id)).unwrap()).prev_id = field.prev_id;
+
+        return Some(field.next_id);
+    }
+}
+
+/// Create an operator with NotCompleted as arguments, then places it in field with field_id. Returns the id of the next field to be focused, if there is any left. 
+pub fn place_uncompleted_operator(op: OperatorType, field_id: u32, proof: &mut Proof, next_index: &mut u32) -> Option<u32> {
     let arity = get_operator_arity(op);
 
-    let res = Formula::Operator(Operator {
-        operator_type: op,
-        arg1: if arity >= 1 { Some(Box::new(Formula::NotCompleted(*next_index))) } else { None },
-        arg2: if arity >= 2 { Some(Box::new(Formula::NotCompleted(*next_index + 1))) } else { None },
-    });
+    let field_formula = search_field_id_in_proof(proof, Some(field_id)).unwrap();
+    let field = formula_as_field(field_formula).clone();
 
-    *next_index += arity;
+    let next_id;
+    let new_formula;
 
-    return res;
-}
+    if arity == 0 {
+        new_formula = Formula::Operator(Operator {
+            operator_type: op, 
+            arg1: None,
+            arg2: None,
+        });
 
-pub fn insert_formula_in_proof(p: &mut Proof, field_index: u32, formula_to_insert: &Formula) -> bool {
-    let ok = insert_formula_in_sequent(&mut p.root, field_index, formula_to_insert);
-    if ok { return true; }
+        next_id = if field.next_id == field.id { None } else { Some(field.next_id) };
+    }
+    else if arity == 1 {
+        new_formula = Formula::Operator(Operator {
+            operator_type: op, 
+            arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
+                id: field.id, // Copy previous index 
+                next_id: field.next_id, 
+                prev_id: field.prev_id 
+            }))),
+            arg2: None,
+        });
 
-    for branch in p.branches.iter_mut() {
-        let ok = insert_formula_in_proof(branch, field_index, formula_to_insert);
-        if ok { return true; }
+        next_id = Some(field.id);
+    }
+    else {
+        new_formula = Formula::Operator(Operator {
+            operator_type: op, 
+            arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
+                id: *next_index, 
+                next_id: *next_index + 1, 
+                prev_id: if field.prev_id == field.id { *next_index + 1 } else { field.prev_id } 
+            }))),
+            arg2: Some(Box::new(Formula::NotCompleted(FormulaField {
+                id: *next_index + 1, 
+                next_id: if field.next_id == field.id { *next_index } else { field.next_id } , 
+                prev_id: *next_index
+            }))),
+        });
+
+        next_id = Some(*next_index);
+        *next_index += 2;
     }
 
-    return false;
+    *field_formula = new_formula;
+
+    if arity == 0 {
+        if field.prev_id != field.id { 
+            formula_as_field(search_field_id_in_proof(proof, Some(field.prev_id)).unwrap()).next_id = field.next_id;
+            formula_as_field(search_field_id_in_proof(proof, Some(field.next_id)).unwrap()).prev_id = field.prev_id;
+        };
+    }
+    else if arity == 2 {
+        if field.prev_id != field.id { 
+            formula_as_field(search_field_id_in_proof(proof, Some(field.prev_id)).unwrap()).next_id = *next_index - 2;
+            formula_as_field(search_field_id_in_proof(proof, Some(field.next_id)).unwrap()).prev_id = *next_index - 1;
+        };
+    }
+
+    return next_id;
 }
 
-pub fn insert_formula_in_sequent(s: &mut Sequent, field_index: u32, formula_to_insert: &Formula) -> bool {
+
+pub fn formula_as_field(f: &mut Formula) -> &mut FormulaField {
+    match f {
+        Formula::NotCompleted(formula_field) => formula_field,
+        _ => panic!("Expected uncompleted field!"),
+    }
+}
+
+
+/// If index is None, returns first field found
+pub fn search_field_id_in_proof<'a>(p: &'a mut Proof, index: Option<u32>) -> Option<&'a mut Formula> {
+    match search_field_id_in_sequent(&mut p.root, index) {
+        Some(res) => Some(res),
+        None => {
+            for b in p.branches.iter_mut() {
+                let res = search_field_id_in_proof(b, index);
+                if res.is_some() { return res; }
+            }
+
+            return None;
+        },
+    }
+} 
+
+/// If index is None, returns first field found
+pub fn search_field_id_in_sequent<'a>(s: &'a mut Sequent, index: Option<u32>) -> Option<&'a mut Formula> {
     for f in s.before.iter_mut() {
-        let ok = insert_formula_in_formula(f, field_index, formula_to_insert);
-        if ok { return false; }
+        let res = search_field_id_in_formula(f, index);
+        if res.is_some() { return res; }
     }
-    
+
     for f in s.after.iter_mut() {
-        let ok = insert_formula_in_formula(f, field_index, formula_to_insert);
-        if ok { return false; }
+        let res = search_field_id_in_formula(f, index);
+        if res.is_some() { return res; }
     }
 
-    return false;
-}
+    return None;
+} 
 
-pub fn insert_formula_in_formula(f: &mut Formula, field_index: u32, formula_to_insert: &Formula) -> bool {
+/// If index is None, returns first field found
+pub fn search_field_id_in_formula<'a>(f: &'a mut Formula, index: Option<u32>) -> Option<&'a mut Formula> {
     match f {
         Formula::Operator(operator) => {
             if operator.arg1.is_some() {
-                let ok = insert_formula_in_formula(operator.arg1.as_mut().unwrap(), field_index, formula_to_insert);
-                if ok { return true; }
+                let res = search_field_id_in_formula(operator.arg1.as_mut().unwrap(), index);
+                if res.is_some() {
+                    return res;
+                }
             }
-            
+
             if operator.arg2.is_some() {
-                let ok = insert_formula_in_formula(operator.arg2.as_mut().unwrap(), field_index, formula_to_insert);
-                if ok { return true; }
+                let res = search_field_id_in_formula(operator.arg2.as_mut().unwrap(), index);
+                if res.is_some() {
+                    return res;
+                }
             }
 
-            return false;
+        return  None;
         },
-        Formula::Variable(_) => { return false; },
-        Formula::NotCompleted(id) => {
-            if field_index == *id {
-                *f = formula_to_insert.clone();
-                return true;
+        Formula::Variable(_) => None,
+        Formula::NotCompleted(field) => {
+        if index.is_none() || field.id == index.unwrap() {
+                return Some(f);
             }
-
-            return false;
+            else {
+                return None;
+            }
         },
     }
-}
+} 

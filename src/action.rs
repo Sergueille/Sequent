@@ -16,8 +16,12 @@ pub enum Action {
 
     /// Corresponds to an operator `slot` that will assigned by the proof system
     /// This way, the keys are the same even if a different logic system is used
-    Operation(u32),
+    InsertOperator(u32),
+    
+    InsertVariable(u32),
+
     NextField,
+    PreviousField,
 }
 
 pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
@@ -35,10 +39,26 @@ pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
     ];
 
     for (i, key) in op_keys.iter().enumerate() {
-        res.insert(Action::Operation(i as u32), *key);
+        res.insert(Action::InsertOperator(i as u32), *key);
+    }
+
+    let var_keys = vec![
+        KeyCode::A,
+        KeyCode::Z,
+        KeyCode::E,
+        KeyCode::R,
+        KeyCode::T,
+        KeyCode::Y,
+        KeyCode::U,
+        KeyCode::I,
+    ];
+
+    for (i, key) in var_keys.iter().enumerate() {
+        res.insert(Action::InsertVariable(i as u32), *key);
     }
 
     res.insert(Action::NextField, KeyCode::Return);
+    res.insert(Action::PreviousField, KeyCode::RShift);
 
     return res;
 }

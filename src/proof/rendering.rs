@@ -24,7 +24,7 @@ pub const FILED_COLOR: u32 = 0x000044ff;
 pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
 
 /// Letters used for variables, in order
-pub const VARIABLE_LETTERS: &str = "AZERTYUIOP";
+pub const VARIABLE_LETTERS: &str = "ABCDEFGH";
 
 pub struct RenderInfo<'a> {
     pub draw: &'a mut Draw,
@@ -166,8 +166,8 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
         Formula::Variable(id) => {
             draw_text(&VARIABLE_LETTERS.chars().nth(*id as usize).unwrap().to_string(), bottom_left, info.text_font, info);
         },
-        Formula::NotCompleted(id) => {
-            let color = if info.editing_formulas && *id == info.focused_formula_field { 
+        Formula::NotCompleted(field_info) => {
+            let color = if info.editing_formulas && field_info.id == info.focused_formula_field { 
                 FOCUSED_FILED_COLOR 
             } else { 
                 FILED_COLOR 
@@ -236,7 +236,7 @@ pub fn get_formula_width(f: &Formula, info: &RenderInfo) -> f32 {
                 sum += get_formula_width(operator.arg1.as_ref().unwrap(), info);
             }
             if operator.arg2.is_some() { 
-                if needs_parentheses(priority, operator.arg1.as_ref().unwrap()) {
+                if needs_parentheses(priority, operator.arg2.as_ref().unwrap()) {
                     sum += parentheses_width;
                 }
 
@@ -304,7 +304,7 @@ pub fn compute_char_sizes(text_font: &notan::text::Font, symbol_font: &notan::te
 fn needs_parentheses(parent_priority: f32, f: &Formula) -> bool {
     match f {
         Formula::Operator(operator) => {
-            get_operator_priority(operator.operator_type) <= parent_priority
+            get_operator_priority(operator.operator_type) >= parent_priority
         },
         Formula::Variable(_) => false,
         Formula::NotCompleted(_) => false,
