@@ -3,27 +3,30 @@
 
 pub mod rendering;
 pub mod calcul;
+pub mod natural_logic;
 
 type Variable = u32;
 
-pub const MAX_VARIABLE_COUNT: u32 = 8;
+pub const MAX_VARIABLE_COUNT: u32 = 10;
 
 /// Each rule will be a dedicated type that implement this.
 pub trait Rule {
     /// Create proof template from the sequent. Returns None if not compatible.
-    fn create_branches(&self, root: &Sequent) -> Option<Vec<Proof>>; 
+    /// next_field_id should be increased if new empty fields are created. Otherwise, it must not be modified.
+    fn create_branches(&self, root: &Sequent, next_field_id: &mut u32) -> Option<Vec<Proof>>; 
     /// Check if the sequents above the root of the proofs corresponds to the rule.
     fn check_validity(&self, proof: &Proof) -> bool; 
+    /// Text to be displayed to the right of the horizontal bar.
+    fn display_text(&self) -> &'static str; 
 }
 
 /// A proof tree.
 #[derive(Clone)]
-pub struct Proof<'a> {
+pub struct Proof {
     pub root: Sequent,
-    pub branches: Vec<Proof<'a>>,
-    pub rule: Option<&'a dyn Rule>,
+    pub branches: Vec<Proof>,
+    pub rule_id: Option<u32>,
 }
-
 
 /// A sequent!
 /// 
@@ -265,3 +268,27 @@ pub fn search_field_id_in_formula<'a>(f: &'a mut Formula, index: Option<u32>) ->
         },
     }
 } 
+
+pub fn get_first_unfinished_proof<'a>(p: &'a mut Proof) -> Option<&'a mut Proof> {
+    match p.rule_id {
+        None => Some(p),
+        Some(_) => {
+            for b in p.branches.iter_mut() {
+                match get_first_unfinished_proof(b) {
+                    Some(res) => return Some(res),
+                    None => (),
+                }
+            }
+
+            return None;
+        }
+    }
+}
+
+pub fn sequent_as_empty_proof(s: Sequent) -> Proof {
+    return Proof {
+        root: s,
+        branches: vec![],
+        rule_id: None,
+    };
+}

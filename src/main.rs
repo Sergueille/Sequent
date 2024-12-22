@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use proof::*;
 use calcul::*;
@@ -15,14 +16,14 @@ mod coord;
 mod action;
 
 /// Current global state of the game.
-enum GameMode<'a> {
-    Ingame(GameState<'a>),
+enum GameMode {
+    Ingame(GameState),
 }
 
 
-struct GameState<'a> {
+struct GameState {
     logic_system: LogicSystem,
-    proof: Proof<'a>,
+    proof: Proof,
     editing_formulas: bool,
 
     /// ID of the current focused formula field
@@ -34,13 +35,14 @@ struct GameState<'a> {
 
 
 #[derive(AppState)]
-struct State<'a> {
+struct State {
     text_font: Font,
     symbol_font: Font,
     cached_sizes: HashMap<char, f32>,
-    mode: GameMode<'a>,
+    mode: GameMode,
     bindings: HashMap<action::Action, KeyCode>,
 }
+
 
 #[notan_main]
 fn main() -> Result<(), String> {
@@ -63,7 +65,7 @@ fn main() -> Result<(), String> {
         .build();
 }
 
-fn setup<'a>(gfx: &mut Graphics) -> State<'a> {
+fn setup(gfx: &mut Graphics) -> State {
     let font = gfx
         .create_font(include_bytes!("../assets/fonts/cmunrm.ttf"))
         .unwrap();
@@ -85,12 +87,7 @@ fn setup<'a>(gfx: &mut Graphics) -> State<'a> {
             cached_text_section: None,
         },
         branches: vec![],
-        rule: None,
-    };
-
-    let logic_system = LogicSystem {
-        operators: vec![OperatorType::Not, OperatorType::And, OperatorType::Or, OperatorType::Impl, OperatorType::Top, OperatorType::Bottom],
-        rules: vec![],
+        rule_id: None,
     };
 
     return State {
@@ -98,7 +95,7 @@ fn setup<'a>(gfx: &mut Graphics) -> State<'a> {
         symbol_font, 
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
         mode: GameMode::Ingame(GameState {
-            logic_system,
+            logic_system: proof::natural_logic::get_system(),
             proof: test_proof,
             editing_formulas: true,
             formulas_position: 0,
@@ -166,6 +163,32 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
                     game_state.formulas_position = proof::formula_as_field(
                         proof::search_field_id_in_proof(&mut game_state.proof, Some(game_state.formulas_position)).unwrap()
                     ).prev_id;
+                }
+            }
+            else { // Not editing formulas
+                match proof::get_first_unfinished_proof(&mut game_state.proof) {
+                    Some(p) => {
+                        let current_proof = p;
+
+                        // Check for rules insertion
+                        for (i, rule) in game_state.logic_system.rules.iter().enumerate() {
+                            if action::was_pressed(action::Action::InsertRule(i as u32), &state.bindings, app) {
+        
+                                match rule.as_ref().create_branches(&current_proof.root, &mut game_state.formulas_position) {
+                                    Some(new_branches) => {
+                                        current_proof.branches = new_branches; 
+                                        current_proof.rule_id = Some(i as u32);
+                                    },
+                                    None => {
+                                        // TODO: feedback
+                                    },
+                                }
+        
+                                break;
+                            } 
+                        }
+                    },
+                    None => (), // TODO: show proof is finished
                 }
             }
 

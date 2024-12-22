@@ -19,6 +19,7 @@ pub enum Action {
     InsertOperator(u32),
     
     InsertVariable(u32),
+    InsertRule(u32),
 
     NextField,
     PreviousField,
@@ -42,6 +43,7 @@ pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
         res.insert(Action::InsertOperator(i as u32), *key);
     }
 
+    // Default for variables and rules
     let var_keys = vec![
         KeyCode::A,
         KeyCode::Z,
@@ -51,10 +53,13 @@ pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
         KeyCode::Y,
         KeyCode::U,
         KeyCode::I,
+        KeyCode::O,
+        KeyCode::P,
     ];
 
     for (i, key) in var_keys.iter().enumerate() {
         res.insert(Action::InsertVariable(i as u32), *key);
+        res.insert(Action::InsertRule(i as u32), *key);
     }
 
     res.insert(Action::NextField, KeyCode::Return);
