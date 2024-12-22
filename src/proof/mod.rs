@@ -11,9 +11,9 @@ pub const MAX_VARIABLE_COUNT: u32 = 10;
 
 /// Each rule will be a dedicated type that implement this.
 pub trait Rule {
-    /// Create proof template from the sequent. Returns None if not compatible.
+    /// Create proof template from the sequent. Returns None if not compatible. Also returns the number of created empty fields
     /// next_field_id should be increased if new empty fields are created. Otherwise, it must not be modified.
-    fn create_branches(&self, root: &Sequent, next_field_id: &mut u32) -> Option<Vec<Proof>>; 
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32); 
     /// Check if the sequents above the root of the proofs corresponds to the rule.
     fn check_validity(&self, proof: &Proof) -> bool; 
     /// Text to be displayed to the right of the horizontal bar.
@@ -111,88 +111,107 @@ fn get_operator_priority(op: OperatorType) -> f32 {
 
 /// Create a variable, then places it in field with field_id. Returns the id of the next field to be focused, if there is any left. 
 pub fn place_variable(var: Variable, field_id: u32, proof: &mut Proof) -> Option<u32> {
-    let field_formula = search_field_id_in_proof(proof, Some(field_id)).unwrap();
-    let field = formula_as_field(field_formula).clone();
+    let mut fields = search_fields_by_id_in_proof(proof, Some(field_id));
+    let first_field = formula_as_field(fields[0]).clone();
+    
+    for field_formula in fields.into_iter() {
+        let new_formula = Formula::Variable(var);
+        
+        *field_formula = new_formula;
+    };
 
-    let new_formula = Formula::Variable(var);
-
-    *field_formula = new_formula;
-
-    if field.next_id == field_id {
+    if first_field.next_id == field_id {
         return None;
     }
     else {
-        formula_as_field(search_field_id_in_proof(proof, Some(field.prev_id)).unwrap()).next_id = field.next_id;
-        formula_as_field(search_field_id_in_proof(proof, Some(field.next_id)).unwrap()).prev_id = field.prev_id;
+        for f in search_fields_by_id_in_proof(proof, Some(first_field.prev_id)).into_iter(){
+            formula_as_field(f).next_id = first_field.next_id;
+        };
+        for f in search_fields_by_id_in_proof(proof, Some(first_field.next_id)).into_iter() {
+            formula_as_field(f).prev_id = first_field.prev_id;
+        };
 
-        return Some(field.next_id);
+        return Some(first_field.next_id);
     }
 }
 
 /// Create an operator with NotCompleted as arguments, then places it in field with field_id. Returns the id of the next field to be focused, if there is any left. 
 pub fn place_uncompleted_operator(op: OperatorType, field_id: u32, proof: &mut Proof, next_index: &mut u32) -> Option<u32> {
     let arity = get_operator_arity(op);
+    let mut fields = search_fields_by_id_in_proof(proof, Some(field_id));
+    let first_field = formula_as_field(fields[0]).clone();
 
-    let field_formula = search_field_id_in_proof(proof, Some(field_id)).unwrap();
-    let field = formula_as_field(field_formula).clone();
+    for field_formula in fields.into_iter() {
+        let field = formula_as_field(field_formula).clone();
+
+        let new_formula;
+
+        if arity == 0 {
+            new_formula = Formula::Operator(Operator {
+                operator_type: op, 
+                arg1: None,
+                arg2: None,
+            });
+        }
+        else if arity == 1 {
+            new_formula = Formula::Operator(Operator {
+                operator_type: op, 
+                arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
+                    id: field.id, // Copy previous index 
+                    next_id: field.next_id, 
+                    prev_id: field.prev_id 
+                }))),
+                arg2: None,
+            });
+
+        }
+        else {
+            new_formula = Formula::Operator(Operator {
+                operator_type: op, 
+                arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
+                    id: *next_index, 
+                    next_id: *next_index + 1, 
+                    prev_id: if field.prev_id == field.id { *next_index + 1 } else { field.prev_id } 
+                }))),
+                arg2: Some(Box::new(Formula::NotCompleted(FormulaField {
+                    id: *next_index + 1, 
+                    next_id: if field.next_id == field.id { *next_index } else { field.next_id } , 
+                    prev_id: *next_index
+                }))),
+            });
+        }
+
+        *field_formula = new_formula;
+    };
 
     let next_id;
-    let new_formula;
-
     if arity == 0 {
-        new_formula = Formula::Operator(Operator {
-            operator_type: op, 
-            arg1: None,
-            arg2: None,
-        });
+        if first_field.prev_id != first_field.id { 
+            for f in search_fields_by_id_in_proof(proof, Some(first_field.prev_id)).into_iter() {
+                formula_as_field(f).next_id = first_field.next_id;
+            };
+            for f in search_fields_by_id_in_proof(proof, Some(first_field.next_id)).into_iter() {
+                formula_as_field(f).prev_id = first_field.prev_id;
+            };
+        };
 
-        next_id = if field.next_id == field.id { None } else { Some(field.next_id) };
+        next_id = if first_field.next_id == first_field.id { None } else { Some(first_field.next_id) };
     }
     else if arity == 1 {
-        new_formula = Formula::Operator(Operator {
-            operator_type: op, 
-            arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
-                id: field.id, // Copy previous index 
-                next_id: field.next_id, 
-                prev_id: field.prev_id 
-            }))),
-            arg2: None,
-        });
-
-        next_id = Some(field.id);
+        next_id = Some(first_field.id);
     }
     else {
-        new_formula = Formula::Operator(Operator {
-            operator_type: op, 
-            arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
-                id: *next_index, 
-                next_id: *next_index + 1, 
-                prev_id: if field.prev_id == field.id { *next_index + 1 } else { field.prev_id } 
-            }))),
-            arg2: Some(Box::new(Formula::NotCompleted(FormulaField {
-                id: *next_index + 1, 
-                next_id: if field.next_id == field.id { *next_index } else { field.next_id } , 
-                prev_id: *next_index
-            }))),
-        });
+        if first_field.prev_id != first_field.id { 
+            for f in search_fields_by_id_in_proof(proof, Some(first_field.prev_id)).into_iter() {
+                formula_as_field(f).next_id = *next_index;
+            };
+            for f in search_fields_by_id_in_proof(proof, Some(first_field.next_id)).into_iter() {
+                formula_as_field(f).prev_id = *next_index + 1;
+            };
+        };
 
         next_id = Some(*next_index);
         *next_index += 2;
-    }
-
-    *field_formula = new_formula;
-
-    if arity == 0 {
-        if field.prev_id != field.id { 
-            formula_as_field(search_field_id_in_proof(proof, Some(field.prev_id)).unwrap()).next_id = field.next_id;
-            formula_as_field(search_field_id_in_proof(proof, Some(field.next_id)).unwrap()).prev_id = field.prev_id;
-        };
-    }
-    else if arity == 2 {
-        if field.prev_id != field.id { 
-            formula_as_field(search_field_id_in_proof(proof, Some(field.prev_id)).unwrap()).next_id = *next_index - 2;
-            formula_as_field(search_field_id_in_proof(proof, Some(field.next_id)).unwrap()).prev_id = *next_index - 1;
-        };
     }
 
     return next_id;
@@ -207,63 +226,49 @@ pub fn formula_as_field(f: &mut Formula) -> &mut FormulaField {
 }
 
 
-/// If index is None, returns first field found
-pub fn search_field_id_in_proof<'a>(p: &'a mut Proof, index: Option<u32>) -> Option<&'a mut Formula> {
-    match search_field_id_in_sequent(&mut p.root, index) {
-        Some(res) => Some(res),
-        None => {
-            for b in p.branches.iter_mut() {
-                let res = search_field_id_in_proof(b, index);
-                if res.is_some() { return res; }
-            }
+/// If index is None, returns all fields
+pub fn search_fields_by_id_in_proof<'a>(p: &'a mut Proof, index: Option<u32>) -> Vec<&'a mut Formula> {
+    let mut res = Vec::new();
+    _search_fields_by_id_in_proof(p, index,&mut res);
+    return res;
+} 
 
-            return None;
-        },
+fn _search_fields_by_id_in_proof<'a>(p: &'a mut Proof, index: Option<u32>, res: &mut Vec<&'a mut Formula>) {
+    search_field_id_in_sequent(&mut p.root, index, res);
+
+    for b in p.branches.iter_mut() {
+        _search_fields_by_id_in_proof(b, index, res);
     }
 } 
 
-/// If index is None, returns first field found
-pub fn search_field_id_in_sequent<'a>(s: &'a mut Sequent, index: Option<u32>) -> Option<&'a mut Formula> {
+
+/// If index is None, returns all fields
+fn search_field_id_in_sequent<'a>(s: &'a mut Sequent, index: Option<u32>, res: &mut Vec<&'a mut Formula>) {
     for f in s.before.iter_mut() {
-        let res = search_field_id_in_formula(f, index);
-        if res.is_some() { return res; }
+        search_field_id_in_formula(f, index, res);
     }
 
     for f in s.after.iter_mut() {
-        let res = search_field_id_in_formula(f, index);
-        if res.is_some() { return res; }
+        search_field_id_in_formula(f, index, res);
     }
-
-    return None;
 } 
 
-/// If index is None, returns first field found
-pub fn search_field_id_in_formula<'a>(f: &'a mut Formula, index: Option<u32>) -> Option<&'a mut Formula> {
+/// If index is None, returns all fields
+fn search_field_id_in_formula<'a>(f: &'a mut Formula, index: Option<u32>, res: &mut Vec<&'a mut Formula>) {
     match f {
         Formula::Operator(operator) => {
             if operator.arg1.is_some() {
-                let res = search_field_id_in_formula(operator.arg1.as_mut().unwrap(), index);
-                if res.is_some() {
-                    return res;
-                }
+                search_field_id_in_formula(operator.arg1.as_mut().unwrap(), index, res);
             }
 
             if operator.arg2.is_some() {
-                let res = search_field_id_in_formula(operator.arg2.as_mut().unwrap(), index);
-                if res.is_some() {
-                    return res;
-                }
+                search_field_id_in_formula(operator.arg2.as_mut().unwrap(), index, res);
             }
-
-        return  None;
         },
-        Formula::Variable(_) => None,
+        Formula::Variable(_) => (),
         Formula::NotCompleted(field) => {
-        if index.is_none() || field.id == index.unwrap() {
-                return Some(f);
-            }
-            else {
-                return None;
+            if index.is_none() || field.id == index.unwrap() {
+                res.push(f);
             }
         },
     }
@@ -291,4 +296,19 @@ pub fn sequent_as_empty_proof(s: Sequent) -> Proof {
         branches: vec![],
         rule_id: None,
     };
+}
+
+pub fn execute_on_first_operator_of_type<T>(formulas: &Vec<Formula>, op_type: OperatorType, f: &dyn Fn(usize, &Option<Box<Formula>>, &Option<Box<Formula>>) -> T, otherwise: T) -> T {
+    for (i, formula) in formulas.iter().enumerate() {
+        match formula {
+            super::Formula::Operator(op) => {
+                if op.operator_type == op_type {
+                    return f(i, &op.arg1, &op.arg2);
+                }
+            },
+            _ => ()
+        }
+    }
+
+    return otherwise;
 }

@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use proof::*;
 use calcul::*;
@@ -99,7 +98,7 @@ fn setup(gfx: &mut Graphics) -> State {
             proof: test_proof,
             editing_formulas: true,
             formulas_position: 0,
-            next_formula_index: 1
+            next_formula_index: 1,
         }),
         bindings: action::get_default_bindings(),
     };
@@ -156,32 +155,38 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
                 // Previous and next fields
                 if action::was_pressed(action::Action::NextField, &state.bindings, app) {
                     game_state.formulas_position = proof::formula_as_field(
-                        proof::search_field_id_in_proof(&mut game_state.proof, Some(game_state.formulas_position)).unwrap()
+                        proof::search_fields_by_id_in_proof(&mut game_state.proof, Some(game_state.formulas_position))[0]
                     ).next_id;
                 }
                 if action::was_pressed(action::Action::PreviousField, &state.bindings, app) {
                     game_state.formulas_position = proof::formula_as_field(
-                        proof::search_field_id_in_proof(&mut game_state.proof, Some(game_state.formulas_position)).unwrap()
+                        proof::search_fields_by_id_in_proof(&mut game_state.proof, Some(game_state.formulas_position))[0]
                     ).prev_id;
                 }
             }
             else { // Not editing formulas
                 match proof::get_first_unfinished_proof(&mut game_state.proof) {
-                    Some(p) => {
-                        let current_proof = p;
-
+                    Some(current_proof) => {
                         // Check for rules insertion
                         for (i, rule) in game_state.logic_system.rules.iter().enumerate() {
                             if action::was_pressed(action::Action::InsertRule(i as u32), &state.bindings, app) {
         
-                                match rule.as_ref().create_branches(&current_proof.root, &mut game_state.formulas_position) {
+                                let (branches, field_count) = rule.as_ref().create_branches(&current_proof.root);
+                                match branches {
                                     Some(new_branches) => {
-                                        current_proof.branches = new_branches; 
+                                        current_proof.branches = new_branches.into_iter().map(proof::sequent_as_empty_proof).collect(); 
                                         current_proof.rule_id = Some(i as u32);
                                     },
                                     None => {
                                         // TODO: feedback
                                     },
+                                }
+
+                                if field_count > 0 {
+                                    game_state.next_formula_index = field_count;
+                                    game_state.formulas_position = 0;
+
+                                    game_state.editing_formulas = true;
                                 }
         
                                 break;

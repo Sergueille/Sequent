@@ -43,7 +43,7 @@ pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
         res.insert(Action::InsertOperator(i as u32), *key);
     }
 
-    // Default for variables and rules
+    // Default for variables
     let var_keys = vec![
         KeyCode::A,
         KeyCode::Z,
@@ -59,8 +59,26 @@ pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
 
     for (i, key) in var_keys.iter().enumerate() {
         res.insert(Action::InsertVariable(i as u32), *key);
+    }
+
+    // Default for rules
+    let var_keys = vec![
+        KeyCode::A,
+        KeyCode::Q,
+        KeyCode::Z,
+        KeyCode::S,
+        KeyCode::E,
+        KeyCode::D,
+        KeyCode::R,
+        KeyCode::F,
+        KeyCode::T,
+        KeyCode::G,
+    ];
+
+    for (i, key) in var_keys.iter().enumerate() {
         res.insert(Action::InsertRule(i as u32), *key);
     }
+
 
     res.insert(Action::NextField, KeyCode::Return);
     res.insert(Action::PreviousField, KeyCode::RShift);

@@ -50,13 +50,26 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     draw_sequent(&p.root, pos, info);
 
     // Draw bar
+    let mut branches_base_size = (f32::max(0.0, p.branches.len() as f32 - 1.0)) * PROOF_MARGIN;
+    for b in p.branches.iter() {
+        let seq_width = get_sequent_width(&b.root, info);
+        branches_base_size += seq_width + f32::max(0.0, get_proof_width(b, info) - seq_width) * 0.5;
+    }
+
+    let bar_left_pos = if p.branches.len() == 0 { 0.0 } else {
+        (get_proof_width(&p.branches[0], info) - get_sequent_width(&p.branches[0].root, info) ) * 0.5
+    };
+    let bar_right_pos = if p.branches.len() == 0 { 0.0 } else {
+        (get_proof_width(&p.branches[p.branches.len() - 1], info) - get_sequent_width(&p.branches[p.branches.len() - 1].root, info)) * 0.5
+    };
+
     let mut bl_pos = bottom_left;
+    bl_pos.x += bar_left_pos;
     bl_pos.y += PAR_POSITION;
 
     let mut tr_pos = bl_pos.clone();
-    tr_pos.x += total_width;
+    tr_pos.x += total_width - bar_right_pos - bar_left_pos;
     tr_pos.y += BAR_HEIGHT;
-
 
     let bl = bl_pos.to_pixel(info.gfx).as_f32_couple();
     let size = tr_pos.to_pixel(info.gfx).difference_with_f32(bl_pos.to_pixel(info.gfx));
