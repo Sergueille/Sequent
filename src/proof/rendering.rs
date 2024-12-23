@@ -50,17 +50,17 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     draw_sequent(&p.root, pos, info);
 
     // Draw bar
-    let mut branches_base_size = (f32::max(0.0, p.branches.len() as f32 - 1.0)) * PROOF_MARGIN;
-    for b in p.branches.iter() {
-        let seq_width = get_sequent_width(&b.root, info);
-        branches_base_size += seq_width + f32::max(0.0, get_proof_width(b, info) - seq_width) * 0.5;
-    }
-
     let bar_left_pos = if p.branches.len() == 0 { 0.0 } else {
-        (get_proof_width(&p.branches[0], info) - get_sequent_width(&p.branches[0].root, info) ) * 0.5
+        f32::min(
+            root_left_space,
+            (get_proof_width(&p.branches[0], info) - get_sequent_width(&p.branches[0].root, info)) * 0.5
+        )
     };
     let bar_right_pos = if p.branches.len() == 0 { 0.0 } else {
-        (get_proof_width(&p.branches[p.branches.len() - 1], info) - get_sequent_width(&p.branches[p.branches.len() - 1].root, info)) * 0.5
+        f32::min(
+            root_left_space,
+            (get_proof_width(&p.branches[p.branches.len() - 1], info) - get_sequent_width(&p.branches[p.branches.len() - 1].root, info)) * 0.5
+        )
     };
 
     let mut bl_pos = bottom_left;
@@ -76,9 +76,10 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     info.draw.rect(bl, size)
         .color(Color::from_hex(0xffffffff));
 
-    let top_left_space = (total_width - branches_width) * 0.5;
+    // Draw 
+    let branches_left_space = (total_width - branches_width) * 0.5;
     pos = bottom_left;
-    pos.x += top_left_space;
+    pos.x += branches_left_space;
     pos.y += LINE_HEIGHT;
 
     for child in p.branches.iter() {
