@@ -7,7 +7,7 @@ use notan::prelude::*;
 use notan::draw::*;
 
 // Screen units
-pub const PROOF_MARGIN: f32 = 100e-3;
+pub const PROOF_MARGIN: f32 = 200e-3;
 pub const SEQUENT_MARGIN: f32 = 30e-3;
 pub const COMMA_MARGIN: f32 = 10e-3;
 pub const FIELD_SIZE: f32 = 70e-3;
@@ -18,8 +18,14 @@ pub const BAR_HEIGHT: f32 = 5e-3;
 pub const PAR_POSITION: f32 = 100e-3;
 pub const OPERATOR_MARGIN: f32 = 10e-3;
 
+pub const RULE_MARGIN: f32 = 10e-3;
+pub const RULE_TEXT_SCALE: f32 = 0.5; // 1 is normal text
+
 pub const FOCUSED_FILED_COLOR: u32 = 0x442200ff;
 pub const FILED_COLOR: u32 = 0x000044ff;
+
+pub const FOCUSED_BAR_COLOR: u32 = 0x442200ff;
+pub const BAR_COLOR: u32 = 0xffffffff;
 
 pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
 
@@ -34,6 +40,13 @@ pub struct RenderInfo<'a> {
     pub cached_sizes: &'a HashMap<char, f32>,
     pub focused_formula_field: u32,
     pub editing_formulas: bool,
+    pub logic_system: &'a LogicSystem,
+    pub time: f32,
+}
+
+
+enum VerticalAlign {
+    Top, Middle, Bottom
 }
 
 
@@ -71,10 +84,24 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     tr_pos.x += total_width - bar_right_pos - bar_left_pos;
     tr_pos.y += BAR_HEIGHT;
 
+    let bar_color = if p.last_focused_time == info.time { FOCUSED_BAR_COLOR } else { BAR_COLOR };
+
     let bl = bl_pos.to_pixel(info.gfx).as_f32_couple();
     let size = tr_pos.to_pixel(info.gfx).difference_with_f32(bl_pos.to_pixel(info.gfx));
     info.draw.rect(bl, size)
-        .color(Color::from_hex(0xffffffff));
+        .color(Color::from_hex(bar_color));
+
+    // Draw rule name
+    match p.rule_id {
+        Some(id) => {
+            let text = format!("({})", info.logic_system.rules[id as usize].display_text());
+            let mut position = tr_pos.clone();
+            position.x += RULE_MARGIN;
+
+            draw_text_more_params(&text, position, info.symbol_font, RULE_TEXT_SCALE, VerticalAlign::Middle, info);
+        },
+        None => (),
+    }
 
     // Draw 
     let branches_left_space = (total_width - branches_width) * 0.5;
@@ -268,6 +295,7 @@ pub fn get_formula_width(f: &Formula, info: &RenderInfo) -> f32 {
     }
 }
 
+
 pub fn get_character_width(char: char, info: &RenderInfo) -> f32 {
     let (_vw, vh) = info.gfx.size();
     
@@ -302,6 +330,9 @@ pub fn compute_char_sizes(text_font: &notan::text::Font, symbol_font: &notan::te
     for c in 'A'..(('Z' as u8 + 1) as char) {
         insert_char(c, text_font, &mut res, &mut calculator)
     }
+    for c in 'a'..(('z' as u8 + 1) as char) {
+        insert_char(c, text_font, &mut res, &mut calculator)
+    }
 
     for c in SYMBOLS.chars() {
         insert_char(c, symbol_font, &mut res, &mut calculator)
@@ -327,11 +358,26 @@ fn needs_parentheses(parent_priority: f32, f: &Formula) -> bool {
 
 
 fn draw_text(text: &str, position: ScreenPosition, font: &Font, info: &mut RenderInfo) -> f32 {
-    info.draw.text(&font, text)
-        .position(position.to_pixel(info.gfx).x as f32, position.to_pixel(info.gfx).y as f32)
-        .size(TEXT_SCALE)
-        .v_align_bottom()
+    draw_text_more_params(text, position, font, 1.0, VerticalAlign::Bottom, info)
+}
+
+
+fn draw_text_more_params(text: &str, position: ScreenPosition, font: &Font, scale: f32, vertical_align: VerticalAlign, info: &mut RenderInfo) -> f32 {
+    let align_fn = match vertical_align {
+        VerticalAlign::Top => TextSection::v_align_top,
+        VerticalAlign::Middle => TextSection::v_align_middle,
+        VerticalAlign::Bottom => TextSection::v_align_bottom,
+    };
+
+    {
+        let mut builder = info.draw.text(&font, text);
+        
+        builder.position(position.to_pixel(info.gfx).x as f32, position.to_pixel(info.gfx).y as f32)
+        .size(TEXT_SCALE * scale)
         .h_align_left();
+    
+        align_fn(&mut builder);
+    }
 
     return info.draw.last_text_bounds().width / info.gfx.size().1 as f32 * 2.0;
 }

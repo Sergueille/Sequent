@@ -22,6 +22,13 @@ enum GameMode {
 
 struct GameState {
     logic_system: LogicSystem,
+    state: UndoState,
+    undo_stack: Vec<UndoState>,
+    redo_stack: Vec<UndoState>,
+}
+
+#[derive(Clone)]
+struct UndoState {
     proof: Proof,
     editing_formulas: bool,
 
@@ -73,8 +80,8 @@ fn setup(gfx: &mut Graphics) -> State {
         .create_font(include_bytes!("../assets/fonts/JuliaMono.ttf"))
         .unwrap();
 
-    let test_proof = Proof {
-        root: Sequent {
+    let test_proof = sequent_as_empty_proof(
+        Sequent {
             before: vec![],
             after: vec![
                 Formula::NotCompleted(FormulaField {
@@ -84,10 +91,8 @@ fn setup(gfx: &mut Graphics) -> State {
                 }),
             ],
             cached_text_section: None,
-        },
-        branches: vec![],
-        rule_id: None,
-    };
+        }
+    );
 
     return State {
         text_font: font,
@@ -95,10 +100,14 @@ fn setup(gfx: &mut Graphics) -> State {
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
         mode: GameMode::Ingame(GameState {
             logic_system: proof::natural_logic::get_system(),
-            proof: test_proof,
-            editing_formulas: true,
-            formulas_position: 0,
-            next_formula_index: 1,
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            state: UndoState {
+                proof: test_proof,
+                editing_formulas: true,
+                formulas_position: 0,
+                next_formula_index: 1,
+            }
         }),
         bindings: action::get_default_bindings(),
     };
@@ -108,6 +117,8 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
     let mut draw = gfx.create_draw();
     draw.clear(Color::BLACK);
 
+    let time_seconds = app.timer.elapsed().as_secs_f32();
+
     // Draw FPS
     draw.text(&state.text_font, &format!("{}ms / {}FPS", app.timer.delta().as_millis(), app.timer.fps().round()))
         .position(2.0, 2.0)
@@ -115,25 +126,31 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         .v_align_top()
         .h_align_left();
 
+
     match &mut state.mode {
         GameMode::Ingame(game_state) => {
-            let mut render_info = proof::rendering::RenderInfo {
-                draw: &mut draw,
-                gfx,
-                text_font: &state.text_font,
-                symbol_font: &state.symbol_font,
-                cached_sizes: &state.cached_sizes,
-                focused_formula_field: game_state.formulas_position,
-                editing_formulas: game_state.editing_formulas
-            };
 
-            if game_state.editing_formulas {
+            // Handle undo/redo
+            if action::was_pressed(action::Action::Undo, &state.bindings, &app) {
+                if !undo(game_state) {
+                    // TODO: undo failed; feedback
+                }
+            }
+            else if action::was_pressed(action::Action::Redo, &state.bindings, &app) {
+                if !redo(game_state) {
+                    // TODO: redo failed; feedback
+                }
+            }
+
+            if game_state.state.editing_formulas {
                 // Check for operator insertion
-                for (i, op) in game_state.logic_system.operators.iter().enumerate() {
+                for (i, op) in game_state.logic_system.operators.clone().into_iter().enumerate() {
                     if action::was_pressed(action::Action::InsertOperator(i as u32), &state.bindings, app) {
-                        match proof::place_uncompleted_operator(*op, game_state.formulas_position, &mut game_state.proof, &mut game_state.next_formula_index) {
-                            Some(new_field) => game_state.formulas_position = new_field,
-                            None => game_state.editing_formulas = false,
+                        
+                        record_undo_entry(game_state);
+                        match proof::place_uncompleted_operator(op, game_state.state.formulas_position, &mut game_state.state.proof, &mut game_state.state.next_formula_index) {
+                            Some(new_field) => game_state.state.formulas_position = new_field,
+                            None => game_state.state.editing_formulas = false,
                         }
                         
                         break;
@@ -143,9 +160,11 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
                 // Check for variable insertion
                 for i in 0..MAX_VARIABLE_COUNT {
                     if action::was_pressed(action::Action::InsertVariable(i as u32), &state.bindings, app) {
-                        match proof::place_variable(i, game_state.formulas_position, &mut game_state.proof) {
-                            Some(new_field) => game_state.formulas_position = new_field,
-                            None => game_state.editing_formulas = false,
+                        
+                        record_undo_entry(game_state);
+                        match proof::place_variable(i, game_state.state.formulas_position, &mut game_state.state.proof) {
+                            Some(new_field) => game_state.state.formulas_position = new_field,
+                            None => game_state.state.editing_formulas = false,
                         }
                         
                         break;     
@@ -154,39 +173,46 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
 
                 // Previous and next fields
                 if action::was_pressed(action::Action::NextField, &state.bindings, app) {
-                    game_state.formulas_position = proof::formula_as_field(
-                        proof::search_fields_by_id_in_proof(&mut game_state.proof, Some(game_state.formulas_position))[0]
+                    game_state.state.formulas_position = proof::formula_as_field(
+                        proof::search_fields_by_id_in_proof(&mut game_state.state.proof, Some(game_state.state.formulas_position))[0]
                     ).next_id;
                 }
                 if action::was_pressed(action::Action::PreviousField, &state.bindings, app) {
-                    game_state.formulas_position = proof::formula_as_field(
-                        proof::search_fields_by_id_in_proof(&mut game_state.proof, Some(game_state.formulas_position))[0]
+                    game_state.state.formulas_position = proof::formula_as_field(
+                        proof::search_fields_by_id_in_proof(&mut game_state.state.proof, Some(game_state.state.formulas_position))[0]
                     ).prev_id;
                 }
             }
             else { // Not editing formulas
-                match proof::get_first_unfinished_proof(&mut game_state.proof) {
+
+                let undo_entry = game_state.state.clone(); 
+
+                match proof::get_first_unfinished_proof(&mut game_state.state.proof) {
                     Some(current_proof) => {
+                        current_proof.last_focused_time = time_seconds;
+
                         // Check for rules insertion
                         for (i, rule) in game_state.logic_system.rules.iter().enumerate() {
                             if action::was_pressed(action::Action::InsertRule(i as u32), &state.bindings, app) {
-        
+
                                 let (branches, field_count) = rule.as_ref().create_branches(&current_proof.root);
                                 match branches {
                                     Some(new_branches) => {
                                         current_proof.branches = new_branches.into_iter().map(proof::sequent_as_empty_proof).collect(); 
                                         current_proof.rule_id = Some(i as u32);
+
+                                        add_undo_entry(undo_entry, game_state);
                                     },
                                     None => {
                                         // TODO: feedback
                                     },
-                                }
+                                } 
 
                                 if field_count > 0 {
-                                    game_state.next_formula_index = field_count;
-                                    game_state.formulas_position = 0;
+                                    game_state.state.next_formula_index = field_count;
+                                    game_state.state.formulas_position = 0;
 
-                                    game_state.editing_formulas = true;
+                                    game_state.state.editing_formulas = true;
                                 }
         
                                 break;
@@ -197,17 +223,63 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
                 }
             }
 
-            let proof_width = get_proof_width(&game_state.proof, &mut render_info);
+            // Draw the proof
+
+            let mut render_info = proof::rendering::RenderInfo {
+                draw: &mut draw,
+                gfx,
+                text_font: &state.text_font,
+                symbol_font: &state.symbol_font,
+                cached_sizes: &state.cached_sizes,
+                focused_formula_field: game_state.state.formulas_position,
+                editing_formulas: game_state.state.editing_formulas,
+                logic_system: &game_state.logic_system,
+                time: time_seconds,
+            };
+
+            let proof_width = get_proof_width(&game_state.state.proof, &mut render_info);
             let position = ScreenPosition {
                 x: -proof_width * 0.5,
                 y: -0.7,
             };
 
-            draw_proof(&game_state.proof, position, &mut render_info);
+            draw_proof(&game_state.state.proof, position, &mut render_info);
         }
     }
 
     gfx.render(&draw);
+}
+
+
+fn record_undo_entry(gs: &mut GameState) {
+    add_undo_entry(gs.state.clone(), gs);
+}
+
+fn add_undo_entry(entry: UndoState, gs: &mut GameState) {
+    gs.undo_stack.push(entry);
+    gs.redo_stack = Vec::new();
+}
+
+fn undo(gs: &mut GameState) -> bool {
+    match gs.undo_stack.pop() {
+        Some(mut last_state) => {
+            std::mem::swap(&mut gs.state, &mut last_state);
+            gs.redo_stack.push(last_state); 
+            return true;
+        },
+        None => return false
+    }
+}
+
+fn redo(gs: &mut GameState) -> bool {
+    match gs.redo_stack.pop() {
+        Some(mut last_state) => {
+            std::mem::swap(&mut gs.state, &mut last_state);
+            gs.undo_stack.push(last_state); 
+            return true;
+        },
+        None => return false
+    }
 }
 
 

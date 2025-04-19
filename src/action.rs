@@ -23,6 +23,9 @@ pub enum Action {
 
     NextField,
     PreviousField,
+
+    Undo,
+    Redo,
 }
 
 pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
@@ -80,8 +83,11 @@ pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
     }
 
 
-    res.insert(Action::NextField, KeyCode::Return);
-    res.insert(Action::PreviousField, KeyCode::RShift);
+    res.insert(Action::NextField, KeyCode::Right);
+    res.insert(Action::PreviousField, KeyCode::Left);
+
+    res.insert(Action::Undo, KeyCode::Back);
+    res.insert(Action::Redo, KeyCode::Return);
 
     return res;
 }

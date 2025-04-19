@@ -42,7 +42,7 @@ impl super::Rule for ImplI {
     }
 
     fn display_text(&self) -> &'static str {
-        todo!()
+        "→i"
     }
 }
 
@@ -76,7 +76,7 @@ impl super::Rule for ImplE {
     }
 
     fn display_text(&self) -> &'static str {
-        todo!()
+        "→e"
     }
 }
 
@@ -113,7 +113,7 @@ impl super::Rule for AndE {
     }
 
     fn display_text(&self) -> &'static str {
-        todo!()
+        "∧e"
     }
 }
 
@@ -145,7 +145,7 @@ impl super::Rule for AndI {
     }
 
     fn display_text(&self) -> &'static str {
-        todo!()
+        "∧i"
     }
 }
 
@@ -175,7 +175,7 @@ impl super::Rule for NotI {
     }
 
     fn display_text(&self) -> &'static str {
-        todo!()
+        "¬i"
     }
 }
 
@@ -218,7 +218,7 @@ impl super::Rule for NotE {
     }
 
     fn display_text(&self) -> &'static str {
-        todo!()
+        "¬e"
     }
 }
 

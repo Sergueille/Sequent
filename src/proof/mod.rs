@@ -26,6 +26,8 @@ pub struct Proof {
     pub root: Sequent,
     pub branches: Vec<Proof>,
     pub rule_id: Option<u32>,
+    
+    pub last_focused_time: f32,
 }
 
 /// A sequent!
@@ -295,6 +297,7 @@ pub fn sequent_as_empty_proof(s: Sequent) -> Proof {
         root: s,
         branches: vec![],
         rule_id: None,
+        last_focused_time: f32::NEG_INFINITY,
     };
 }
 
