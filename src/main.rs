@@ -7,12 +7,14 @@ use calcul::*;
 use coord::*;
 use notan::prelude::*;
 use notan::draw::*;
+use notan::egui::{self, *};
 use rendering::draw_proof;
 use rendering::get_proof_width;
 
 mod proof;
 mod coord;
 mod action;
+mod game_ui;
 
 /// Current global state of the game.
 enum GameMode {
@@ -68,6 +70,7 @@ fn main() -> Result<(), String> {
         .draw(draw)
         .add_config(window_config)
         .add_config(DrawConfig)
+        .add_config(EguiConfig)
         .build();
 }
 
@@ -113,9 +116,9 @@ fn setup(gfx: &mut Graphics) -> State {
     };
 }
 
-fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
+fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut State) {
     let mut draw = gfx.create_draw();
-    draw.clear(Color::BLACK);
+    // draw.clear(Color::BLACK);
 
     let time_seconds = app.timer.elapsed().as_secs_f32();
 
@@ -126,6 +129,19 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         .v_align_top()
         .h_align_left();
 
+    // EGUI can be used here, maybe later for forms or menus
+    let mut ui_output = plugins.egui(|ctx| {
+        let frame = egui::containers::Frame {
+            fill: Color32::TRANSPARENT,
+            ..Default::default()
+        };
+
+        egui::CentralPanel::default().frame(frame).show(ctx, |_ui| {
+            // UI code here
+        });
+    });
+    
+    ui_output.clear_color(Color::from_hex(0x000000ff));
 
     match &mut state.mode {
         GameMode::Ingame(game_state) => {
@@ -141,6 +157,8 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
                     // TODO: redo failed; feedback
                 }
             }
+
+            game_ui::render_ui(&state.bindings, &state.symbol_font, &mut draw, &gfx, &game_state);
 
             if game_state.state.editing_formulas {
                 // Check for operator insertion
@@ -247,6 +265,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
         }
     }
 
+    gfx.render(&ui_output);
     gfx.render(&draw);
 }
 

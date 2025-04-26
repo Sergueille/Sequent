@@ -88,7 +88,7 @@ fn get_operator_arity(op: OperatorType) -> u32 {
     }
 }
 
-fn get_operator_symbol(op: OperatorType) -> &'static str {
+pub fn get_operator_symbol(op: OperatorType) -> &'static str {
     match op {
         OperatorType::Not => "¬",
         OperatorType::Impl => "→",

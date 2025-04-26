@@ -1,13 +1,15 @@
+use super::*;
+
 
 pub fn get_system() -> super::LogicSystem {
     return super::LogicSystem {
         operators: vec![
-            super::OperatorType::Not, 
-            super::OperatorType::Impl, 
-            super::OperatorType::And, 
-            super::OperatorType::Or, 
-            super::OperatorType::Top, 
-            super::OperatorType::Bottom
+            OperatorType::Not, 
+            OperatorType::Impl, 
+            OperatorType::And, 
+            OperatorType::Or, 
+            OperatorType::Top, 
+            OperatorType::Bottom
         ],
         rules: vec! {
             Box::new(NotI {}),
@@ -16,6 +18,7 @@ pub fn get_system() -> super::LogicSystem {
             Box::new(ImplE {}),
             Box::new(AndI {}),
             Box::new(AndE {}),
+            Box::new(Axiom {}),
         },
     }
 }
@@ -51,24 +54,35 @@ pub struct ImplE { }
 
 impl super::Rule for ImplE {
     fn create_branches(&self, root: &super::Sequent) -> (Option<Vec<super::Sequent>>, u32) {
-        if root.before.len() == 0 || root.after.len() == 0 {
+        if root.after.len() == 0 {
             return (None, 0);
         }
 
-        let mut new_seq = root.clone();
+        let mut l = root.clone();
+        let mut r = root.clone();
 
-        new_seq.after.insert(0, super::Formula::Operator(super::Operator {
-            operator_type: super::OperatorType::Impl,
-            arg1: Some(Box::new(new_seq.before[0].clone())),
-            arg2: Some(Box::new(new_seq.after[0].clone())),
+        let impl_right = l.after.remove(0);
+        r.after.remove(0);
+
+        l.after.push(Formula::Operator(Operator { 
+            operator_type: OperatorType::Impl, 
+            arg1: Some(Box::new(Formula::NotCompleted(super::FormulaField {
+                id: 0,
+                next_id: 0,
+                prev_id: 0,
+            }))), 
+            arg2: Some(Box::new(impl_right)),
         }));
 
-        new_seq.before.remove(0);
-        new_seq.after.remove(1);
+        r.after.push(Formula::NotCompleted(super::FormulaField {
+            id: 0,
+            next_id: 0,
+            prev_id: 0,
+        }));
 
         return (Some(vec![
-            new_seq, 
-        ]), 0);
+            l, r, 
+        ]), 1);
     }
 
     fn check_validity(&self, _proof: &super::Proof) -> bool {
@@ -222,10 +236,33 @@ impl super::Rule for NotE {
     }
 }
 
+
+pub struct Axiom { }
+
+
+impl super::Rule for Axiom {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        if root.after.len() != 0 && root.before.contains(&root.after[0]) {
+            return (Some(vec![]), 0);
+        }
+        else {
+            return (None, 0);
+        }
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "Ax"
+    }
+}
+
+
 // TODOlist :) Dont forget to add them in get_system()!
 pub struct OrI { }
 pub struct OrE { }
 pub struct TopI { }
 pub struct BottomE { }
-pub struct Axiom { }
 pub struct RAA { }

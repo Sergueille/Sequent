@@ -4,6 +4,8 @@ use notan::app::App;
 
 use crate::KeyCode;
 
+pub type Bindings = HashMap<Action, KeyCode>;
+
 /// Only put useful Keycodes in here
 static KEYCODES: [KeyCode; 1] = [
     KeyCode::Escape
@@ -28,7 +30,7 @@ pub enum Action {
     Redo,
 }
 
-pub fn get_default_bindings() -> HashMap<Action, KeyCode> {
+pub fn get_default_bindings() -> Bindings {
     let mut res = HashMap::new();
 
     let op_keys = vec![
@@ -104,3 +106,6 @@ pub fn was_pressed(action: Action, bindings: &HashMap<Action, KeyCode>, app: &Ap
     }
 }
 
+pub fn key_code_display(code: KeyCode) -> String {
+    return format!("{:?}", code); // Temporary solution
+}

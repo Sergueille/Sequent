@@ -31,8 +31,37 @@ impl ScreenPosition {
     pub fn new(x: f32, y: f32) -> ScreenPosition {
         return ScreenPosition { x, y };
     }
+
+    pub fn add(self, rect: ScreenRect) -> ScreenPosition {
+        return ScreenPosition { x: self.x + rect.x, y: self.y + rect.y };
+    }
+
+    pub fn subtract(self, rect: ScreenRect) -> ScreenPosition {
+        return ScreenPosition { x: self.x - rect.x, y: self.y - rect.y };
+    }
 }
 
+/// Represents two sizes, where 1 is half the height of the screen (to be coherent with ScreenPosition)
+#[derive(Clone, Copy, Debug)]
+pub struct ScreenRect {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl ScreenRect {
+    pub fn to_pixel(self, gfx: &Graphics) -> (i32, i32) {
+        return ScreenPosition { x: self.x, y: self.y }.to_pixel(gfx).difference_with(ScreenPosition { x: 0.0, y: 0.0 }.to_pixel(gfx));
+    }
+
+    pub fn to_pixel_f32(self, gfx: &Graphics) -> (f32, f32) {
+        let (rx, ry) = self.to_pixel(gfx);
+        return (rx as f32, ry as f32);
+    }
+
+    pub fn scale(self, factor: f32) -> ScreenRect {
+        return ScreenRect { x: self.x * factor, y: self.x * factor };
+    }
+}
 
 /// Pixel position:
 /// Origin is top left, corresponds to pixels
