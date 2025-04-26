@@ -1,0 +1,16 @@
+
+- parser un fichier qui contient des sequent avec métadonnées (nom, difficulté) 
+    -> decider du format (json, yaml, csv, ...)
+- faire un menu avec une liste des sequents
+- sauvegarde avec les sequents faits, les temps, etc...
+
+- trouver plus de sequents intéressants
+- générer des sequents aléatoirement
+
+- pouvoir changer la taille d'affichage du sequent (actuellement super chiant a faire)
+- centrer la vue sur le sequent actuel plutôt que sur le champ de texte actuel?
+- plus d'animations sur l'édition de sequents
+- meilleur alignement du texte des sequents
+- afficher toutes les touches possible à l'écran (undo, redo, etc...)
+
+

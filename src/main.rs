@@ -284,6 +284,19 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
 
             draw_proof(&game_state.state.proof, base_position.add(game_state.sequent_position), &mut render_info);
 
+            // If larger than screen move to center focused element, otherwise center the sequent
+            let current_shift = if render_info.focus_rect == ScreenRect::nothing() {
+                game_state.sequent_position.x
+            }
+            else if proof_width > (screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 {
+                render_info.focus_rect.center().x
+            }
+            else {
+                game_state.sequent_position.x
+            };
+
+            /* Other possible behavior: if the focused element is near borders or outside screen, move sequent
+
             let safe_left = SEQUENT_SAFE_ZONE_SIDES - screen_ratio;
             let safe_right = - SEQUENT_SAFE_ZONE_SIDES + screen_ratio;
 
@@ -305,6 +318,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             else {
                 0.0
             };
+            */
 
             game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED * current_shift * app.timer.delta_f32();
         }
