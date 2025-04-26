@@ -1,8 +1,8 @@
 use super::*;
 
 
-pub fn get_system() -> super::LogicSystem {
-    return super::LogicSystem {
+pub fn get_system() -> LogicSystem {
+    return LogicSystem {
         operators: vec![
             OperatorType::Not, 
             OperatorType::Impl, 
@@ -17,8 +17,27 @@ pub fn get_system() -> super::LogicSystem {
             Box::new(ImplI {}),
             Box::new(ImplE {}),
             Box::new(AndI {}),
-            Box::new(AndE {}),
+            Box::new(AndEL {}),
+            Box::new(OrIL {}),
+            Box::new(OrE {}),
+            Box::new(TopI {}),
+            Box::new(BottomE {}),
+            Box::new(RAA {}),
             Box::new(Axiom {}),
+        },
+        special_rules: vec! {
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(Box::new(AndER {})),
+            Some(Box::new(OrIR {})),
+            None,
+            None,
+            None,
+            None,
+            None,
         },
     }
 }
@@ -26,9 +45,9 @@ pub fn get_system() -> super::LogicSystem {
 
 pub struct ImplI { }
 
-impl super::Rule for ImplI {
-    fn create_branches(&self, root: &super::Sequent) -> (Option<Vec<super::Sequent>>, u32) {
-        return super::execute_on_first_operator_of_type(&root.after, super::OperatorType::Impl, &|i, arg1, arg2| {
+impl Rule for ImplI {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Impl, &|i, arg1, arg2| {
             let mut new_seq = root.clone();
             new_seq.after.remove(i);
             new_seq.after.insert(i, arg2.as_ref().unwrap().as_ref().clone());
@@ -40,7 +59,7 @@ impl super::Rule for ImplI {
         }, (None, 0));
     }
 
-    fn check_validity(&self, _proof: &super::Proof) -> bool {
+    fn check_validity(&self, _proof: &Proof) -> bool {
         true
     }
 
@@ -52,8 +71,8 @@ impl super::Rule for ImplI {
 
 pub struct ImplE { }
 
-impl super::Rule for ImplE {
-    fn create_branches(&self, root: &super::Sequent) -> (Option<Vec<super::Sequent>>, u32) {
+impl Rule for ImplE {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
         if root.after.len() == 0 {
             return (None, 0);
         }
@@ -66,7 +85,7 @@ impl super::Rule for ImplE {
 
         l.after.push(Formula::Operator(Operator { 
             operator_type: OperatorType::Impl, 
-            arg1: Some(Box::new(Formula::NotCompleted(super::FormulaField {
+            arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
                 id: 0,
                 next_id: 0,
                 prev_id: 0,
@@ -74,7 +93,7 @@ impl super::Rule for ImplE {
             arg2: Some(Box::new(impl_right)),
         }));
 
-        r.after.push(Formula::NotCompleted(super::FormulaField {
+        r.after.push(Formula::NotCompleted(FormulaField {
             id: 0,
             next_id: 0,
             prev_id: 0,
@@ -85,7 +104,7 @@ impl super::Rule for ImplE {
         ]), 1);
     }
 
-    fn check_validity(&self, _proof: &super::Proof) -> bool {
+    fn check_validity(&self, _proof: &Proof) -> bool {
         true
     }
 
@@ -95,22 +114,20 @@ impl super::Rule for ImplE {
 }
 
 
-pub struct AndE {
+pub struct AndEL { }
 
-}
-
-impl super::Rule for AndE {
-    fn create_branches(&self, root: &super::Sequent) -> (Option<Vec<super::Sequent>>, u32) {
+impl Rule for AndEL {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
         if root.after.len() == 0 {
             return (None, 0);
         }
         
         let mut new_seq = root.clone();
 
-        new_seq.after[0] = super::Formula::Operator(super::Operator {
-            operator_type: super::OperatorType::And,
+        new_seq.after[0] = Formula::Operator(Operator {
+            operator_type: OperatorType::And,
             arg1: Some(Box::new(new_seq.after[0].clone())),
-            arg2: Some(Box::new(super::Formula::NotCompleted(super::FormulaField {
+            arg2: Some(Box::new(Formula::NotCompleted(FormulaField {
                 id: 0,
                 next_id: 0,
                 prev_id: 0,
@@ -122,23 +139,58 @@ impl super::Rule for AndE {
         ]), 1);
     }
 
-    fn check_validity(&self, _proof: &super::Proof) -> bool {
+    fn check_validity(&self, _proof: &Proof) -> bool {
         true
     }
 
     fn display_text(&self) -> &'static str {
-        "∧e"
+        "∧el"
     }
 }
+
+pub struct AndER { }
+
+impl Rule for AndER {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        if root.after.len() == 0 {
+            return (None, 0);
+        }
+        
+        let mut new_seq = root.clone();
+
+        new_seq.after[0] = Formula::Operator(Operator {
+            operator_type: OperatorType::And,
+            arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
+                id: 0,
+                next_id: 0,
+                prev_id: 0,
+            }))),
+            arg2: Some(Box::new(new_seq.after[0].clone())),
+        });
+
+        return (Some(vec![
+            new_seq, 
+        ]), 1);
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "∧er"
+    }
+}
+
 
 
 pub struct AndI {
 
 }
 
-impl super::Rule for AndI {
-    fn create_branches(&self, root: &super::Sequent) -> (Option<Vec<super::Sequent>>, u32) {
-        return super::execute_on_first_operator_of_type(&root.after, super::OperatorType::And, &|i, arg1, arg2| {
+impl Rule for AndI {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::And, &|i, arg1, arg2| {
             let mut seq_1 = root.clone();
             let mut seq_2 = root.clone();
 
@@ -154,7 +206,7 @@ impl super::Rule for AndI {
         }, (None, 0));
     }
 
-    fn check_validity(&self, _proof: &super::Proof) -> bool {
+    fn check_validity(&self, _proof: &Proof) -> bool {
         true
     }
 
@@ -165,15 +217,15 @@ impl super::Rule for AndI {
 
 pub struct NotI { }
 
-impl super::Rule for NotI {
-    fn create_branches(&self, root: &super::Sequent) -> (Option<Vec<super::Sequent>>, u32) {
-        return super::execute_on_first_operator_of_type(&root.after, super::OperatorType::Not, &|i, arg1, _arg2| {
+impl Rule for NotI {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Not, &|i, arg1, _arg2| {
             let mut seq = root.clone();
 
             seq.after.remove(i);
-            seq.after.insert(i, super::Formula::Operator({
-                super::Operator {
-                    operator_type: super::OperatorType::Bottom,
+            seq.after.insert(i, Formula::Operator({
+                Operator {
+                    operator_type: OperatorType::Bottom,
                     arg1: None,
                     arg2: None,
                 }
@@ -184,7 +236,7 @@ impl super::Rule for NotI {
         }, (None, 0));
     }
 
-    fn check_validity(&self, _proof: &super::Proof) -> bool {
+    fn check_validity(&self, _proof: &Proof) -> bool {
         true
     }
 
@@ -196,26 +248,26 @@ impl super::Rule for NotI {
 
 pub struct NotE { }
 
-impl super::Rule for NotE {
-    fn create_branches(&self, root: &super::Sequent) -> (Option<Vec<super::Sequent>>, u32) {
-        return super::execute_on_first_operator_of_type(&root.after, super::OperatorType::Bottom, &|i, _arg1, _arg2| {
+impl Rule for NotE {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Bottom, &|i, _arg1, _arg2| {
             let mut seq_1 = root.clone();
             let mut seq_2 = root.clone();
 
             seq_1.after.remove(i);
             seq_2.after.remove(i);
 
-            seq_1.after.insert(i, super::Formula::NotCompleted({
-                super::FormulaField {
+            seq_1.after.insert(i, Formula::NotCompleted({
+                FormulaField {
                     id: 0,
                     next_id: 0,
                     prev_id: 0,
                 }
             }));
 
-            seq_2.after.insert(i, super::Formula::Operator(super::Operator { 
-                operator_type: super::OperatorType::Not, 
-                arg1: Some(Box::new(super::Formula::NotCompleted(super::FormulaField { 
+            seq_2.after.insert(i, Formula::Operator(Operator { 
+                operator_type: OperatorType::Not, 
+                arg1: Some(Box::new(Formula::NotCompleted(FormulaField { 
                     id: 0,
                     next_id: 0,
                     prev_id: 0,
@@ -227,7 +279,7 @@ impl super::Rule for NotE {
         }, (None, 0));
     }
 
-    fn check_validity(&self, _proof: &super::Proof) -> bool {
+    fn check_validity(&self, _proof: &Proof) -> bool {
         true
     }
 
@@ -240,7 +292,7 @@ impl super::Rule for NotE {
 pub struct Axiom { }
 
 
-impl super::Rule for Axiom {
+impl Rule for Axiom {
     fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
         if root.after.len() != 0 && root.before.contains(&root.after[0]) {
             return (Some(vec![]), 0);
@@ -259,10 +311,161 @@ impl super::Rule for Axiom {
     }
 }
 
-
-// TODOlist :) Dont forget to add them in get_system()!
-pub struct OrI { }
 pub struct OrE { }
+
+
+impl Rule for OrE {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        let mut a = root.clone();
+        let mut b = a.clone();
+        let mut c = a.clone();
+
+        a.before.push(Formula::NotCompleted(FormulaField { 
+            id: 0,
+            next_id: 1,
+            prev_id: 1,
+        }));
+
+        b.before.push(Formula::NotCompleted(FormulaField { 
+            id: 1,
+            next_id: 0,
+            prev_id: 0,
+        }));
+
+        c.after.remove(0);
+        
+        c.after.push(Formula::Operator(Operator { 
+            operator_type: OperatorType::Or, 
+            arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
+                id: 0,
+                next_id: 1,
+                prev_id: 1,
+            }))), 
+            arg2: Some(Box::new(Formula::NotCompleted(FormulaField {
+                id: 1,
+                next_id: 0,
+                prev_id: 0,
+            }))), 
+        }));
+
+        return (Some(vec![a, b, c]), 2)
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "∨e"
+    }
+}
+
+
+pub struct OrIL { }
+
+impl Rule for OrIL {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Or, &|i, arg1, _| {
+            let mut s = root.clone();
+
+            s.after.remove(i);
+            s.after.insert(i, arg1.as_ref().unwrap().as_ref().clone());
+            
+            return (Some(vec![s]), 0);
+        }, (None, 0));
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "∨il"
+    }
+}
+
+pub struct OrIR { }
+
+impl Rule for OrIR {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Or, &|i, _, arg2| {
+            let mut s = root.clone();
+
+            s.after.remove(i);
+            s.after.insert(i, arg2.as_ref().unwrap().as_ref().clone());
+            
+            return (Some(vec![s]), 0);
+        }, (None, 0));
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "∨ir"
+    }
+}
+
 pub struct TopI { }
+
+impl Rule for TopI {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Top, &|_, _, _| {
+            return (Some(vec![]), 0);
+        }, (None, 0));
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "⊤i"
+    }
+}
+
+
 pub struct BottomE { }
+
+impl Rule for BottomE {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        let mut s = root.clone();
+
+        s.after.remove(0);
+        s.after.push(Formula::Operator(Operator { operator_type: OperatorType::Bottom, arg1: None, arg2: None }));
+        
+        return (Some(vec![s]), 0);
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "⊥e"
+    }
+}
+
 pub struct RAA { }
+
+impl Rule for RAA {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        let mut s = root.clone();
+
+        let after = s.after.remove(0);
+        s.before.push(Formula::Operator(Operator { operator_type: OperatorType::Not, arg1: Some(Box::new(after)), arg2: None }));
+        s.after.push(Formula::Operator(Operator { operator_type: OperatorType::Bottom, arg1: None, arg2: None }));
+        
+        return (Some(vec![s]), 0);
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "RAA"
+    }
+}
+

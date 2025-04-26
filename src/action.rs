@@ -18,10 +18,10 @@ pub enum Action {
 
     /// Corresponds to an operator `slot` that will assigned by the proof system
     /// This way, the keys are the same even if a different logic system is used
-    InsertOperator(u32),
-    
+    InsertOperator(u32),    
     InsertVariable(u32),
     InsertRule(u32),
+    SpecialRuleMode,
 
     NextField,
     PreviousField,
@@ -78,17 +78,23 @@ pub fn get_default_bindings() -> Bindings {
         KeyCode::F,
         KeyCode::T,
         KeyCode::G,
+        KeyCode::Y,
+        KeyCode::H,
+        KeyCode::U,
     ];
 
     for (i, key) in var_keys.iter().enumerate() {
         res.insert(Action::InsertRule(i as u32), *key);
     }
 
+    res.insert(Action::SpecialRuleMode, KeyCode::LShift);
 
     res.insert(Action::NextField, KeyCode::Right);
     res.insert(Action::PreviousField, KeyCode::Left);
 
     res.insert(Action::Undo, KeyCode::Back);
+    res.insert(Action::Redo, KeyCode::Return);
+
     res.insert(Action::Redo, KeyCode::Return);
 
     return res;
@@ -98,6 +104,18 @@ pub fn was_pressed(action: Action, bindings: &HashMap<Action, KeyCode>, app: &Ap
     match bindings.get(&action) {
         Some(key) => {
             return app.keyboard.was_pressed(*key);
+        },
+        None => {
+            println!("No binding for action {:?}", action);
+            return false;
+        },
+    }
+}
+
+pub fn is_down(action: Action, bindings: &HashMap<Action, KeyCode>, app: &App) -> bool {
+    match bindings.get(&action) {
+        Some(key) => {
+            return app.keyboard.is_down(*key);
         },
         None => {
             println!("No binding for action {:?}", action);

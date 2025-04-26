@@ -158,7 +158,9 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
                 }
             }
 
-            game_ui::render_ui(&state.bindings, &state.symbol_font, &mut draw, &gfx, &game_state);
+            let special_mode = action::is_down(action::Action::SpecialRuleMode, &state.bindings, &app);
+
+            game_ui::render_ui(special_mode, &state.bindings, &state.symbol_font, &mut draw, &gfx, &game_state);
 
             if game_state.state.editing_formulas {
                 // Check for operator insertion
@@ -210,8 +212,18 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
                         current_proof.last_focused_time = time_seconds;
 
                         // Check for rules insertion
-                        for (i, rule) in game_state.logic_system.rules.iter().enumerate() {
+                        for i in 0..game_state.logic_system.rules.len() {
                             if action::was_pressed(action::Action::InsertRule(i as u32), &state.bindings, app) {
+
+                                let rule = if special_mode {
+                                    match &game_state.logic_system.special_rules[i] {
+                                        Some(rule) => rule,
+                                        None => &game_state.logic_system.rules[i],
+                                    }
+                                }
+                                else {
+                                    &game_state.logic_system.rules[i]
+                                };
 
                                 let (branches, field_count) = rule.as_ref().create_branches(&current_proof.root);
                                 match branches {

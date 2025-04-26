@@ -75,6 +75,7 @@ pub struct FormulaField {
 pub struct LogicSystem {
     pub operators: Vec<OperatorType>,
     pub rules: Vec<Box<dyn Rule>>,
+    pub special_rules: Vec<Option<Box<dyn Rule>>>,
 }
 
 fn get_operator_arity(op: OperatorType) -> u32 {
