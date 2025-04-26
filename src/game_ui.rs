@@ -79,7 +79,7 @@ fn draw_action_and_text(pos: ScreenPosition, action: crate::action::Action, text
 
 pub fn draw_action(action: crate::action::Action, position: ScreenPosition, bindings: &crate::action::Bindings, font: &Font, draw: &mut Draw, gfx: &Graphics) {
     
-    let rect = ScreenRect { x: ACTION_RECT_SIZE, y: ACTION_RECT_SIZE };
+    let rect = ScreenSize { x: ACTION_RECT_SIZE, y: ACTION_RECT_SIZE };
     let bl = position.subtract(rect.scale(0.5));
 
     let action_text = match bindings.get(&action) {

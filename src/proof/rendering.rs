@@ -42,6 +42,8 @@ pub struct RenderInfo<'a> {
     pub editing_formulas: bool,
     pub logic_system: &'a LogicSystem,
     pub time: f32,
+    // Position of the currently focused element. Set by the draw_proof function
+    pub focus_rect: ScreenRect,
 }
 
 
@@ -115,6 +117,15 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
         pos.x += get_proof_width(child, info);
         pos.x += PROOF_MARGIN;
     }
+
+    // Update focus position
+    if p.last_focused_time == info.time {
+        info.focus_rect = ScreenRect {
+            bottom_left: bottom_left,
+            top_right: ScreenPosition { x: bottom_left.x + total_width, y: bottom_left.y + LINE_HEIGHT}
+        }
+    }
+
 }
 
 
@@ -221,6 +232,15 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
 
             let size = top_right.to_pixel(&info.gfx).difference_with_f32(bottom_left.to_pixel(&info.gfx));
             info.draw.rect(bl, size).color(Color::from_hex(color));
+
+            // Update focus position
+            if info.editing_formulas && field_info.id == info.focused_formula_field {
+                let rect = ScreenRect {
+                    bottom_left, top_right
+                };
+
+                info.focus_rect = ScreenRect::merge(info.focus_rect.clone(), rect);
+            }
         },
     }
 }

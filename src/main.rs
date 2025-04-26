@@ -27,6 +27,7 @@ struct GameState {
     state: UndoState,
     undo_stack: Vec<UndoState>,
     redo_stack: Vec<UndoState>,
+    sequent_position: ScreenSize,
 }
 
 #[derive(Clone)]
@@ -50,6 +51,10 @@ struct State {
     mode: GameMode,
     bindings: HashMap<action::Action, KeyCode>,
 }
+
+/// Part of the screen, next to left and right borders, where focused element shouldn't be (screen space) 
+pub const SEQUENT_SAFE_ZONE_SIDES: f32 = 0.3;
+pub const CAMERA_MOVEMENT_SPEED: f32 = 5.0;
 
 
 #[notan_main]
@@ -110,7 +115,8 @@ fn setup(gfx: &mut Graphics) -> State {
                 editing_formulas: true,
                 formulas_position: 0,
                 next_formula_index: 1,
-            }
+            },
+            sequent_position: ScreenSize::zero(),
         }),
         bindings: action::get_default_bindings(),
     };
@@ -142,6 +148,9 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
     });
     
     ui_output.clear_color(Color::from_hex(0x000000ff));
+
+    let (w, h) = gfx.size();
+    let screen_ratio = w as f32 / h as f32;
 
     match &mut state.mode {
         GameMode::Ingame(game_state) => {
@@ -254,7 +263,6 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             }
 
             // Draw the proof
-
             let mut render_info = proof::rendering::RenderInfo {
                 draw: &mut draw,
                 gfx,
@@ -265,15 +273,40 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
                 editing_formulas: game_state.state.editing_formulas,
                 logic_system: &game_state.logic_system,
                 time: time_seconds,
+                focus_rect: ScreenRect::nothing()
             };
 
             let proof_width = get_proof_width(&game_state.state.proof, &mut render_info);
-            let position = ScreenPosition {
+            let base_position = ScreenPosition {
                 x: -proof_width * 0.5,
                 y: -0.7,
             };
 
-            draw_proof(&game_state.state.proof, position, &mut render_info);
+            draw_proof(&game_state.state.proof, base_position.add(game_state.sequent_position), &mut render_info);
+
+            let safe_left = SEQUENT_SAFE_ZONE_SIDES - screen_ratio;
+            let safe_right = - SEQUENT_SAFE_ZONE_SIDES + screen_ratio;
+
+            let overflow_left = render_info.focus_rect.bottom_left.x < safe_left;
+            let overflow_right = render_info.focus_rect.top_right.x > safe_right;
+
+            let current_shift = if render_info.focus_rect == ScreenRect::nothing() {
+                0.0
+            }
+            else if overflow_left && overflow_right {
+                render_info.focus_rect.center().x
+            }
+            else if overflow_left {
+                render_info.focus_rect.bottom_left.x - safe_left
+            }
+            else if overflow_right {
+                render_info.focus_rect.top_right.x - safe_right
+            }
+            else {
+                0.0
+            };
+
+            game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED * current_shift * app.timer.delta_f32();
         }
     }
 
