@@ -25,3 +25,6 @@ De Morgan, et 1         !(A et B) |- !A ou !B                   3               
 De Morgan, et 2         !A ou !B |- !(A et B)                   2               non
                         A ou B |- (!A -> B)                     1+              non     utilise le principe d'explosion
                         (!A -> B) |- A ou B                     3               oui     peut être fait avec le tiers exclu
+                        !(A ou !A) |- A ou !A                   2+              non     
+                        !!A -> A |- ((!A -> A) -> A)            2+              non     du coup on a !!A -> A |- A ou !A, mais jsp si il y a un moyen plus rapide
+Contraposée             A -> B |- !B -> !A                      1               non
