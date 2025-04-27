@@ -54,6 +54,8 @@ struct State {
 
 /// Part of the screen, next to left and right borders, where focused element shouldn't be (screen space) 
 pub const SEQUENT_SAFE_ZONE_SIDES: f32 = 0.3;
+/// Part of the screen, next to the top, where focused element shouldn't be (screen space) 
+pub const SEQUENT_SAFE_ZONE_TOP: f32 = 0.5;
 pub const CAMERA_MOVEMENT_SPEED: f32 = 5.0;
 
 
@@ -76,6 +78,7 @@ fn main() -> Result<(), String> {
         .add_config(window_config)
         .add_config(DrawConfig)
         .add_config(EguiConfig)
+        .add_plugin(notan::extra::FpsLimit::new(100))
         .build();
 }
 
@@ -129,7 +132,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
     let time_seconds = app.timer.elapsed().as_secs_f32();
 
     // Draw FPS
-    draw.text(&state.text_font, &format!("{}ms / {}FPS", app.timer.delta().as_millis(), app.timer.fps().round()))
+    draw.text(&state.text_font, &format!("{}ms / {}FPS", ((1.0 / app.timer.fps()) * 1000.0).round(), app.timer.fps().round()))
         .position(2.0, 2.0)
         .size(20.0)
         .v_align_top()
@@ -288,7 +291,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             draw_proof(&game_state.state.proof, base_position.add(game_state.sequent_position), &mut render_info);
 
             // If larger than screen move to center focused element, otherwise center the sequent
-            let current_shift = if render_info.focus_rect == ScreenRect::nothing() {
+            let current_x_shift = if render_info.focus_rect == ScreenRect::nothing() {
                 game_state.sequent_position.x
             }
             else if proof_width > (screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 {
@@ -306,7 +309,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             let overflow_left = render_info.focus_rect.bottom_left.x < safe_left;
             let overflow_right = render_info.focus_rect.top_right.x > safe_right;
 
-            let current_shift = if render_info.focus_rect == ScreenRect::nothing() {
+            let current_x_shift = if render_info.focus_rect == ScreenRect::nothing() {
                 0.0
             }
             else if overflow_left && overflow_right {
@@ -323,7 +326,18 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             };
             */
 
-            game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED * current_shift * app.timer.delta_f32();
+            let current_y_shift = if render_info.focus_rect == ScreenRect::nothing() {
+                game_state.sequent_position.y
+            }
+            else if -game_state.sequent_position.y + render_info.focus_rect.top_right.y > 1.0 - SEQUENT_SAFE_ZONE_TOP {
+                render_info.focus_rect.top_right.y - 1.0 + SEQUENT_SAFE_ZONE_TOP
+            }
+            else {
+                game_state.sequent_position.y
+            };
+
+            game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED * current_x_shift * app.timer.delta_f32();
+            game_state.sequent_position.y -= CAMERA_MOVEMENT_SPEED * current_y_shift * app.timer.delta_f32();
         }
     }
 

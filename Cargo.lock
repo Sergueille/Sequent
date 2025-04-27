@@ -1166,6 +1166,7 @@ dependencies = [
  "notan_core",
  "notan_draw",
  "notan_egui",
+ "notan_extra",
  "notan_glyph",
  "notan_graphics",
  "notan_input",
@@ -1245,6 +1246,16 @@ dependencies = [
  "notan_app",
  "notan_core",
  "notan_macro",
+]
+
+[[package]]
+name = "notan_extra"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81a9218b719de3fc8b6225fd0db6d325aaa478ac7cdada701e0573381d473c6c"
+dependencies = [
+ "notan_app",
+ "spin_sleep",
 ]
 
 [[package]]
@@ -1960,6 +1971,15 @@ dependencies = [
  "wayland-client",
  "wayland-cursor",
  "wayland-protocols",
+]
+
+[[package]]
+name = "spin_sleep"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64bd7227d85bfd1b8df51e0d83da36d9baaee85eb75730386ef8e3ab6f2a2ea3"
+dependencies = [
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
