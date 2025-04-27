@@ -21,12 +21,6 @@ pub const OPERATOR_MARGIN: f32 = 10e-3;
 pub const RULE_MARGIN: f32 = 10e-3;
 pub const RULE_TEXT_SCALE: f32 = 0.5; // 1 is normal text
 
-pub const FOCUSED_FILED_COLOR: u32 = 0x442200ff;
-pub const FILED_COLOR: u32 = 0x000044ff;
-
-pub const FOCUSED_BAR_COLOR: u32 = 0x442200ff;
-pub const BAR_COLOR: u32 = 0xffffffff;
-
 pub const APPEAR_TAU: f32 = 0.05;
 
 pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
@@ -44,6 +38,7 @@ pub struct RenderInfo<'a> {
     pub editing_formulas: bool,
     pub logic_system: &'a LogicSystem,
     pub time: f32,
+    pub theme: crate::Theme,
     // Position of the currently focused element. Set by the draw_proof function
     pub focus_rect: ScreenRect,
 }
@@ -88,7 +83,7 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     tr_pos.x += total_width - bar_right_pos - bar_left_pos;
     tr_pos.y += BAR_HEIGHT;
 
-    let bar_color = if p.last_focused_time == info.time { FOCUSED_BAR_COLOR } else { BAR_COLOR };
+    let bar_color = if p.last_focused_time == info.time { info.theme.seq_bar_focused } else { info.theme.seq_bar };
     let bar_scale = 1.0 - f32::exp((p.creation_time - info.time) / APPEAR_TAU);
 
     let bl = bl_pos.to_pixel(info.gfx).as_f32_couple();
@@ -96,7 +91,7 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     size.x *= bar_scale;
 
     info.draw.rect(bl, size.to_pixel_f32(info.gfx))
-        .color(Color::from_hex(bar_color));
+        .color(bar_color);
 
     // Draw rule name
     match p.rule_id {
@@ -225,9 +220,9 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
         },
         Formula::NotCompleted(field_info) => {
             let color = if info.editing_formulas && field_info.id == info.focused_formula_field { 
-                FOCUSED_FILED_COLOR 
+                info.theme.seq_field_focused 
             } else { 
-                FILED_COLOR 
+                info.theme.seq_field
             };
 
             let bl = bottom_left.to_pixel(info.gfx).as_f32_couple();
@@ -236,7 +231,7 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
             top_right.y += FIELD_HEIGHT;
 
             let size = top_right.to_pixel(&info.gfx).difference_with_f32(bottom_left.to_pixel(&info.gfx));
-            info.draw.rect(bl, size).color(Color::from_hex(color));
+            info.draw.rect(bl, size).color(color);
 
             // Update focus position
             if info.editing_formulas && field_info.id == info.focused_formula_field {
@@ -403,8 +398,9 @@ fn draw_text_more_params(text: &str, position: ScreenPosition, font: &Font, scal
         let mut builder = info.draw.text(&font, text);
         
         builder.position(position.to_pixel(info.gfx).x as f32, position.to_pixel(info.gfx).y as f32)
-        .size(TEXT_SCALE * scale)
-        .h_align_left();
+            .size(TEXT_SCALE * scale)
+            .color(info.theme.seq_text)
+            .h_align_left();
     
         align_fn(&mut builder);
     }

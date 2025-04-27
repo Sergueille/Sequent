@@ -2,7 +2,7 @@
 // Ingame UI rendering
 
 use crate::coord::*;
-use crate::GameState;
+use crate::{GameState, Theme};
 use notan::prelude::*;
 use notan::draw::*;
 
@@ -17,7 +17,7 @@ pub const KEYS_Y: f32 = 0.85;
 pub const KEYS_LINE_HEIGHT: f32 = 0.1;
 
 
-pub fn render_ui(special: bool, bindings: &crate::action::Bindings, symbol_font: &Font, draw: &mut Draw, gfx: &Graphics, game_state: &GameState) {
+pub fn render_ui(special: bool, theme: Theme, bindings: &crate::action::Bindings, symbol_font: &Font, draw: &mut Draw, gfx: &Graphics, game_state: &GameState) {
     
     if game_state.state.editing_formulas {
 
@@ -28,7 +28,7 @@ pub fn render_ui(special: bool, bindings: &crate::action::Bindings, symbol_font:
                 ScreenPosition { x: -total_size * 0.5 + KEYS_COLUMN_SIZE * (i as f32 + 0.5), y: KEYS_Y },
                 crate::action::Action::InsertOperator(i as u32),
                 crate::proof::get_operator_symbol(*op),
-                bindings, symbol_font, draw, gfx
+                theme, bindings, symbol_font, draw, gfx
             );
         }
     }
@@ -50,7 +50,7 @@ pub fn render_ui(special: bool, bindings: &crate::action::Bindings, symbol_font:
                 ScreenPosition { x: -total_size * 0.5 + KEYS_COLUMN_SIZE * ((i/2) as f32 + 0.5), y: KEYS_Y - KEYS_LINE_HEIGHT * ((i%2) as f32) },
                 crate::action::Action::InsertRule(i as u32),
                 rule.display_text(),
-                bindings, symbol_font, draw, gfx
+                theme, bindings, symbol_font, draw, gfx
             );
         }
     }
@@ -58,13 +58,13 @@ pub fn render_ui(special: bool, bindings: &crate::action::Bindings, symbol_font:
 }
 
 
-fn draw_action_and_text(pos: ScreenPosition, action: crate::action::Action, text: &str, bindings: &crate::action::Bindings, 
+fn draw_action_and_text(pos: ScreenPosition, action: crate::action::Action, text: &str, theme: Theme, bindings: &crate::action::Bindings, 
     symbol_font: &Font, draw: &mut Draw, gfx: &Graphics
 ) {
     let x = pos.x - ACTION_RECT_SIZE * 0.5 - ACTION_RIGHT_MARGIN * 0.5;
     let pos = ScreenPosition { x, y: pos.y };
 
-    draw_action(action, pos, bindings, symbol_font, draw, gfx);
+    draw_action(action, pos, theme, bindings, symbol_font, draw, gfx);
 
     let sym_pos = ScreenPosition { x: x + ACTION_RECT_SIZE + ACTION_RIGHT_MARGIN, y: pos.y }.to_pixel(gfx);
 
@@ -72,12 +72,15 @@ fn draw_action_and_text(pos: ScreenPosition, action: crate::action::Action, text
     draw.text(symbol_font, operator_symbol)
         .size(ACTION_TEXT_SIZE)
         .position(sym_pos.x as f32, sym_pos.y as f32)
+        .color(theme.ui_text)
         .v_align_middle()
         .h_align_left();
 }
 
 
-pub fn draw_action(action: crate::action::Action, position: ScreenPosition, bindings: &crate::action::Bindings, font: &Font, draw: &mut Draw, gfx: &Graphics) {
+pub fn draw_action(action: crate::action::Action, position: ScreenPosition, theme: Theme, bindings: &crate::action::Bindings, 
+    font: &Font, draw: &mut Draw, gfx: &Graphics
+) {
     
     let rect = ScreenSize { x: ACTION_RECT_SIZE, y: ACTION_RECT_SIZE };
     let bl = position.subtract(rect.scale(0.5));
@@ -98,11 +101,12 @@ pub fn draw_action(action: crate::action::Action, position: ScreenPosition, bind
     let screen_pos_pixel = position.to_pixel(gfx);
 
     draw.rect(bl.to_pixel(gfx).as_f32_couple(), rect.to_pixel_f32(gfx))
-        .color(Color::from_hex(ACTION_RECT_COLOR));
+        .color(theme.ui_bg);
 
     draw.text(font, action_text)
         .size(text_size)
         .position(screen_pos_pixel.x as f32, screen_pos_pixel.y as f32)
+        .color(theme.ui_text)
         .v_align_middle()
         .h_align_center();
 }

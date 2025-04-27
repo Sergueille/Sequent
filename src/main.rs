@@ -15,6 +15,7 @@ mod proof;
 mod coord;
 mod action;
 mod game_ui;
+mod background;
 
 /// Current global state of the game.
 enum GameMode {
@@ -50,7 +51,24 @@ struct State {
     cached_sizes: HashMap<char, f32>,
     mode: GameMode,
     bindings: HashMap<action::Action, KeyCode>,
+    screen_ratio: f32,
+    theme: Theme,
+    background_state: background::BackgroundState,
 }
+
+#[derive(Clone, Copy)]
+struct Theme {
+    ui_text: Color,
+    ui_bg: Color,
+    bg_text: Color,
+    bg: Color,
+    seq_text: Color,
+    seq_bar: Color,
+    seq_bar_focused: Color,
+    seq_field: Color,
+    seq_field_focused: Color,
+} 
+
 
 /// Part of the screen, next to left and right borders, where focused element shouldn't be (screen space) 
 pub const SEQUENT_SAFE_ZONE_SIDES: f32 = 0.3;
@@ -105,6 +123,18 @@ fn setup(gfx: &mut Graphics) -> State {
         0.0
     );
 
+    let test_theme = Theme {
+        ui_text: Color::from_hex(0xeeeeeeff),
+        ui_bg: Color::from_hex(0x222222ff),
+        bg_text: Color::from_hex(0x151515ff),
+        bg: Color::from_hex(0x080808ff),
+        seq_text: Color::from_hex(0xeeeeeeff),
+        seq_bar: Color::from_hex(0xeeeeeeff),
+        seq_bar_focused: Color::from_hex(0xffccaaff),
+        seq_field: Color::from_hex(0x30308050),
+        seq_field_focused: Color::from_hex(0xffffdd50),
+    };
+
     return State {
         text_font: font,
         symbol_font, 
@@ -122,6 +152,9 @@ fn setup(gfx: &mut Graphics) -> State {
             sequent_position: ScreenSize::zero(),
         }),
         bindings: action::get_default_bindings(),
+        screen_ratio: 1.0,
+        background_state: background::init_background_state(),
+        theme: test_theme,
     };
 }
 
@@ -150,10 +183,12 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
         });
     });
     
-    ui_output.clear_color(Color::from_hex(0x000000ff));
+    ui_output.clear_color(state.theme.bg);
 
     let (w, h) = gfx.size();
-    let screen_ratio = w as f32 / h as f32;
+    state.screen_ratio = w as f32 / h as f32;
+
+    background::draw_background(app.timer.elapsed_f32(), &mut draw, &gfx, state);
 
     match &mut state.mode {
         GameMode::Ingame(game_state) => {
@@ -172,7 +207,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
 
             let special_mode = action::is_down(action::Action::SpecialRuleMode, &state.bindings, &app);
 
-            game_ui::render_ui(special_mode, &state.bindings, &state.symbol_font, &mut draw, &gfx, &game_state);
+            game_ui::render_ui(special_mode, state.theme, &state.bindings, &state.symbol_font, &mut draw, &gfx, &game_state);
 
             if game_state.state.editing_formulas {
                 // Check for operator insertion
@@ -279,7 +314,8 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
                 editing_formulas: game_state.state.editing_formulas,
                 logic_system: &game_state.logic_system,
                 time: time_seconds,
-                focus_rect: ScreenRect::nothing()
+                theme: state.theme,
+                focus_rect: ScreenRect::nothing(),
             };
 
             let proof_width = get_proof_width(&game_state.state.proof, &mut render_info);
@@ -294,7 +330,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             let current_x_shift = if render_info.focus_rect == ScreenRect::nothing() {
                 game_state.sequent_position.x
             }
-            else if proof_width > (screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 {
+            else if proof_width > (state.screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 {
                 render_info.focus_rect.center().x
             }
             else {
