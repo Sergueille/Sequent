@@ -13,10 +13,10 @@ Les valeurs "difficulté" et "RAA" dépendent de la preuve que j'ai trouvée, el
 Thèse non non A         A |- !!A                                1               non
 L'autre sens            !!A |- A                                1               oui
 Distribution du ou 1    A ou (B et C) |- (A ou B) et (A ou C)   2               non
-Distribution du ou 2    (A ou B) et (A ou C) |- A ou (B et C)   ?
-Distribution du et 1    A et (B ou C) |- (A et B) ou (A et C)   ?
-Distribution du et 2    (A et B) ou (A et C) |- A et (B ou C)   ?
-Curryfication           (A et B) -> C |- A -> (B -> C)          ?
+Distribution du ou 2    (A ou B) et (A ou C) |- A ou (B et C)   2               non
+Distribution du et 1    A et (B ou C) |- (A et B) ou (A et C)   2               non
+Distribution du et 2    (A et B) ou (A et C) |- A et (B ou C)   2               non
+Curryfication           (A et B) -> C |- A -> (B -> C)          1               non
 Décurryfication         A -> (B -> C) |- (A et B) -> C          2               non
 Tiers état              |- A ou (!A)                            3               oui
 De Morgan, ou 1         !(A ou B) |- !A et !B                   2               non
