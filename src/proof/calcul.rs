@@ -8,8 +8,6 @@ pub struct SequentCalc {
     pub before_var: Vec<Formula>,
     pub after: Vec<Formula>,
     pub after_var: Vec<Formula>,
-
-    pub cached_text_section: Option<notan::glyph::Section<'static>>,
 }
 
 // Transform a sequent to the new format
@@ -19,8 +17,6 @@ fn sequent_to_sequentcalc(sequent: Sequent) -> SequentCalc{
         before_var: vec![],
         after: sequent.after,
         after_var: vec![],
-
-        cached_text_section: sequent.cached_text_section,
     }
 }
 

@@ -13,14 +13,15 @@ Les valeurs "difficulté" et "RAA" dépendent de la preuve que j'ai trouvée, el
 Thèse non non A         A |- !!A                                1               non
 L'autre sens            !!A |- A                                1               oui
 Distribution du ou 1    A ou (B et C) |- (A ou B) et (A ou C)   2               non
-Distribution du ou 2    (A ou B) et (A ou C) |- A ou (B et C)   ?
-Distribution du et 1    A et (B ou C) |- (A et B) ou (A et C)   ?
-Distribution du et 2    (A et B) ou (A et C) |- A et (B ou C)   ?
+Distribution du ou 2    (A ou B) et (A ou C) |- A ou (B et C)   2               non
+Distribution du et 1    A et (B ou C) |- (A et B) ou (A et C)   1+              non
+Distribution du et 2    (A et B) ou (A et C) |- A et (B ou C)   1+              non
 Curryfication           (A et B) -> C |- A -> (B -> C)          ?
 Décurryfication         A -> (B -> C) |- (A et B) -> C          2               non
-Tiers état              |- A ou (!A)                            3               oui
+Tiers état              |- A ou (!A)                            3               oui     peut être fait en réutilisant De Morgan (mais avec 2 RAA)
 De Morgan, ou 1         !(A ou B) |- !A et !B                   2               non
 De Morgan, ou 2         !A et !B |- !(A ou B)                   2               non
 De Morgan, et 1         !(A et B) |- !A ou !B                   3               oui
 De Morgan, et 2         !A ou !B |- !(A et B)                   2               non
-
+                        A ou B |- (!A -> B)                     1+              non     utilise le principe d'explosion
+                        (!A -> B) |- A ou B                     3               oui     peut être fait avec le tiers exclu

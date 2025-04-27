@@ -98,8 +98,8 @@ fn setup(gfx: &mut Graphics) -> State {
                     next_id: 0,
                 }),
             ],
-            cached_text_section: None,
-        }
+        },
+        0.0
     );
 
     return State {
@@ -237,7 +237,10 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
                                 let (branches, field_count) = rule.as_ref().create_branches(&current_proof.root);
                                 match branches {
                                     Some(new_branches) => {
-                                        current_proof.branches = new_branches.into_iter().map(proof::sequent_as_empty_proof).collect(); 
+                                        current_proof.branches = new_branches.into_iter().map(|s|
+                                            proof::sequent_as_empty_proof(s, app.timer.elapsed_f32())
+                                        ).collect();
+
                                         current_proof.rule_id = Some(i as u32);
 
                                         add_undo_entry(undo_entry, game_state);
@@ -373,7 +376,6 @@ fn calculation_test() {
                     arg2: Some(Box::new(Formula::Variable(1))),
             })
         ],
-        cached_text_section: None,
     };
     let test = proof_or_fake(seq);
 

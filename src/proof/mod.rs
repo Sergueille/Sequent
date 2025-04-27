@@ -1,6 +1,4 @@
 
-#![allow(dead_code)]
-
 pub mod rendering;
 pub mod calcul;
 pub mod natural_logic;
@@ -28,6 +26,7 @@ pub struct Proof {
     pub rule_id: Option<u32>,
     
     pub last_focused_time: f32,
+    pub creation_time: f32,
 }
 
 /// A sequent!
@@ -37,8 +36,6 @@ pub struct Proof {
 pub struct Sequent {
     pub before: Vec<Formula>,
     pub after: Vec<Formula>,
-
-    pub cached_text_section: Option<notan::glyph::Section<'static>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -293,12 +290,13 @@ pub fn get_first_unfinished_proof<'a>(p: &'a mut Proof) -> Option<&'a mut Proof>
     }
 }
 
-pub fn sequent_as_empty_proof(s: Sequent) -> Proof {
+pub fn sequent_as_empty_proof(s: Sequent, time: f32) -> Proof {
     return Proof {
         root: s,
         branches: vec![],
         rule_id: None,
         last_focused_time: f32::NEG_INFINITY,
+        creation_time: time,
     };
 }
 

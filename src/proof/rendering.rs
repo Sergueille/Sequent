@@ -27,6 +27,8 @@ pub const FILED_COLOR: u32 = 0x000044ff;
 pub const FOCUSED_BAR_COLOR: u32 = 0x442200ff;
 pub const BAR_COLOR: u32 = 0xffffffff;
 
+pub const APPEAR_TAU: f32 = 0.05;
+
 pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
 
 /// Letters used for variables, in order
@@ -68,13 +70,13 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     let bar_left_pos = if p.branches.len() == 0 { 0.0 } else {
         f32::min(
             root_left_space,
-            (get_proof_width(&p.branches[0], info) - get_sequent_width(&p.branches[0].root, info)) * 0.5
+            (get_proof_width(&p.branches[0], info) - get_proof_root_width(&p.branches[0], info)) * 0.5
         )
     };
     let bar_right_pos = if p.branches.len() == 0 { 0.0 } else {
         f32::min(
             root_left_space,
-            (get_proof_width(&p.branches[p.branches.len() - 1], info) - get_sequent_width(&p.branches[p.branches.len() - 1].root, info)) * 0.5
+            (get_proof_width(&p.branches[p.branches.len() - 1], info) - get_proof_root_width(&p.branches[p.branches.len() - 1], info)) * 0.5
         )
     };
 
@@ -87,10 +89,13 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     tr_pos.y += BAR_HEIGHT;
 
     let bar_color = if p.last_focused_time == info.time { FOCUSED_BAR_COLOR } else { BAR_COLOR };
+    let bar_scale = 1.0 - f32::exp((p.creation_time - info.time) / APPEAR_TAU);
 
     let bl = bl_pos.to_pixel(info.gfx).as_f32_couple();
-    let size = tr_pos.to_pixel(info.gfx).difference_with_f32(bl_pos.to_pixel(info.gfx));
-    info.draw.rect(bl, size)
+    let mut size = tr_pos.difference_with(bl_pos);
+    size.x *= bar_scale;
+
+    info.draw.rect(bl, size.to_pixel_f32(info.gfx))
         .color(Color::from_hex(bar_color));
 
     // Draw rule name
@@ -247,7 +252,8 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
 
 
 pub fn get_proof_width(p: &Proof, info: &mut RenderInfo) -> f32 {
-    return f32::max(get_proof_branches_width(p, info), get_sequent_width(&p.root, info));
+    let x_scale = 1.0 - f32::exp((p.creation_time - info.time) / APPEAR_TAU);
+    return f32::max(get_proof_branches_width(p, info), get_sequent_width(&p.root, info)) * x_scale;
 }
 
 
@@ -261,6 +267,10 @@ fn get_proof_branches_width(p: &Proof, info: &mut RenderInfo) -> f32 {
     return sum;
 }
 
+pub fn get_proof_root_width(p: &Proof, info: &mut RenderInfo) -> f32 {
+    let x_scale = 1.0 - f32::exp((p.creation_time - info.time) / APPEAR_TAU);
+    return get_sequent_width(&p.root, info) * x_scale;
+}
 
 pub fn get_sequent_width(s: &Sequent, info: &RenderInfo) -> f32 {
     let mut sum = get_character_width('⊢', info);
