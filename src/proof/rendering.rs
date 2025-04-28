@@ -22,6 +22,8 @@ pub const RULE_MARGIN: f32 = 10e-3;
 pub const RULE_TEXT_SCALE: f32 = 0.5; // 1 is normal text
 
 pub const APPEAR_TAU: f32 = 0.05;
+pub const APPEAR_OVERSHOOT: f32 = 1.0;
+pub const APPEAR_RULE_OVERSHOOT: f32 = 2.0;
 
 pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
 
@@ -37,6 +39,7 @@ pub struct RenderInfo<'a> {
     pub focused_formula_field: u32,
     pub editing_formulas: bool,
     pub logic_system: &'a LogicSystem,
+    pub scale: f32,
     pub time: f32,
     pub theme: crate::Theme,
     // Position of the currently focused element. Set by the draw_proof function
@@ -56,10 +59,12 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
 
     let root_left_space = (total_width - root_width) * 0.5;
 
+    let appear_scale = crate::animation::ease_out_exp_second(info.time - p.creation_time, APPEAR_TAU, APPEAR_OVERSHOOT);
+
     let mut pos = bottom_left;
     pos.x += root_left_space;
 
-    draw_sequent(&p.root, pos, info);
+    draw_sequent(&p.root, pos, appear_scale, info);
 
     // Draw bar
     let bar_left_pos = if p.branches.len() == 0 { 0.0 } else {
@@ -77,21 +82,22 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
 
     let mut bl_pos = bottom_left;
     bl_pos.x += bar_left_pos;
-    bl_pos.y += PAR_POSITION;
+    bl_pos.y += PAR_POSITION * info.scale;
 
     let mut tr_pos = bl_pos.clone();
     tr_pos.x += total_width - bar_right_pos - bar_left_pos;
-    tr_pos.y += BAR_HEIGHT;
+    tr_pos.y += BAR_HEIGHT * info.scale;
 
     let bar_color = if p.last_focused_time == info.time { info.theme.seq_bar_focused } else { info.theme.seq_bar };
-    let bar_scale = 1.0 - f32::exp((p.creation_time - info.time) / APPEAR_TAU);
 
     let bl = bl_pos.to_pixel(info.gfx).as_f32_couple();
     let mut size = tr_pos.difference_with(bl_pos);
-    size.x *= bar_scale;
+    size.x *= appear_scale;
 
     info.draw.rect(bl, size.to_pixel_f32(info.gfx))
         .color(bar_color);
+
+    let rule_scale = crate::animation::ease_out_exp_second(info.time - p.rule_set_time , APPEAR_TAU, APPEAR_RULE_OVERSHOOT);
 
     // Draw rule name
     match p.rule_id {
@@ -100,7 +106,7 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
             let mut position = tr_pos.clone();
             position.x += RULE_MARGIN;
 
-            draw_text_more_params(&text, position, info.symbol_font, RULE_TEXT_SCALE, VerticalAlign::Middle, info);
+            draw_text_more_params(&text, position, info.symbol_font, RULE_TEXT_SCALE * rule_scale, VerticalAlign::Middle, info);
         },
         None => (),
     }
@@ -109,58 +115,58 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     let branches_left_space = (total_width - branches_width) * 0.5;
     pos = bottom_left;
     pos.x += branches_left_space;
-    pos.y += LINE_HEIGHT;
+    pos.y += LINE_HEIGHT * info.scale;
 
     for child in p.branches.iter() {
         draw_proof(&child, pos, info);
 
         pos.x += get_proof_width(child, info);
-        pos.x += PROOF_MARGIN;
+        pos.x += PROOF_MARGIN * info.scale;
     }
 
     // Update focus position
     if p.last_focused_time == info.time {
         info.focus_rect = ScreenRect {
             bottom_left: bottom_left,
-            top_right: ScreenPosition { x: bottom_left.x + total_width, y: bottom_left.y + LINE_HEIGHT}
+            top_right: ScreenPosition { x: bottom_left.x + total_width, y: bottom_left.y + LINE_HEIGHT * info.scale }
         }
     }
 
 }
 
 
-pub fn draw_sequent(s: &Sequent, bottom_left: ScreenPosition, info: &mut RenderInfo) {
+pub fn draw_sequent(s: &Sequent, bottom_left: ScreenPosition, squish_x: f32, info: &mut RenderInfo) {
     let mut pos = bottom_left;
 
     for (i, f) in s.before.iter().enumerate() {
         if i != 0 {
-            pos.x += draw_text(",", pos, info.text_font, info);
-            pos.x += COMMA_MARGIN;
+            pos.x += draw_text(",", pos, info.text_font, info) * squish_x;
+            pos.x += COMMA_MARGIN * info.scale;
         }
 
-        draw_formula(f, pos, info);
-        pos.x += get_formula_width(f, info);
+        draw_formula(f, pos, squish_x, info);
+        pos.x += get_formula_width(f, info) * squish_x;
     }
 
-    if s.before.len() > 0 { pos.x += SEQUENT_MARGIN };
+    if s.before.len() > 0 { pos.x += SEQUENT_MARGIN * info.scale * squish_x };
 
     pos.x += draw_text("⊢", pos, info.symbol_font, info);
 
-    if s.after.len() > 0 { pos.x += SEQUENT_MARGIN };
+    if s.after.len() > 0 { pos.x += SEQUENT_MARGIN * info.scale * squish_x };
 
     for (i, f) in s.after.iter().enumerate() {
         if i != 0 {
-            pos.x += draw_text(",", pos, info.text_font, info);
-            pos.x += COMMA_MARGIN;
+            pos.x += draw_text(",", pos, info.text_font, info) * squish_x;
+            pos.x += COMMA_MARGIN * info.scale * squish_x;
         }
 
-        draw_formula(f, pos, info);
-        pos.x += get_formula_width(f, info);
+        draw_formula(f, pos, squish_x, info);
+        pos.x += get_formula_width(f, info) * squish_x;
     }
 }
 
 
-pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderInfo) {
+pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, info: &mut RenderInfo) {
     match f {
         Formula::Operator(operator) => {
             let arity = get_operator_arity(operator.operator_type);
@@ -178,38 +184,38 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
                     let need_p = needs_parentheses(priority, &f);
 
                     if need_p {
-                        draw_pos.x += draw_text(&opening_parenthesis, draw_pos, info.text_font, info);
+                        draw_pos.x += draw_text(&opening_parenthesis, draw_pos, info.text_font, info) * squish_x;
                     }
 
-                    draw_formula(f, draw_pos, info);
-                    draw_pos.x += get_formula_width(f, info);
+                    draw_formula(f, draw_pos, squish_x, info);
+                    draw_pos.x += get_formula_width(f, info) * squish_x;
 
                     if need_p {
-                        draw_pos.x += draw_text(&closing_parenthesis, draw_pos, info.text_font, info);
+                        draw_pos.x += draw_text(&closing_parenthesis, draw_pos, info.text_font, info) * squish_x;
                     }
 
-                    draw_pos.x += OPERATOR_MARGIN;
+                    draw_pos.x += OPERATOR_MARGIN * info.scale * squish_x;
                 }
                 None => {},
             }
             
-            draw_pos.x += draw_text(&get_operator_symbol(operator.operator_type), draw_pos, info.symbol_font, info);
+            draw_pos.x += draw_text(&get_operator_symbol(operator.operator_type), draw_pos, info.symbol_font, info) * squish_x;
 
             match right_f {
                 Some(f) => {
                     let need_p = needs_parentheses(priority, &f);
 
-                    draw_pos.x += OPERATOR_MARGIN;
+                    draw_pos.x += OPERATOR_MARGIN * info.scale * squish_x;
 
                     if need_p {
-                        draw_pos.x += draw_text(&opening_parenthesis, draw_pos, info.text_font, info);
+                        draw_pos.x += draw_text(&opening_parenthesis, draw_pos, info.text_font, info) * squish_x;
                     }
 
-                    draw_formula(f, draw_pos, info);
-                    draw_pos.x += get_formula_width(f, info);
+                    draw_formula(f, draw_pos, squish_x, info);
+                    draw_pos.x += get_formula_width(f, info) * squish_x;
 
                     if need_p {
-                        draw_pos.x += draw_text(&closing_parenthesis, draw_pos, info.text_font, info);
+                        draw_pos.x += draw_text(&closing_parenthesis, draw_pos, info.text_font, info) * squish_x;
                     }
                 }
                 None => {},
@@ -227,8 +233,8 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
 
             let bl = bottom_left.to_pixel(info.gfx).as_f32_couple();
             let mut top_right = bottom_left.clone();
-            top_right.x += FIELD_SIZE;
-            top_right.y += FIELD_HEIGHT;
+            top_right.x += FIELD_SIZE * info.scale;
+            top_right.y += FIELD_HEIGHT * info.scale;
 
             let size = top_right.to_pixel(&info.gfx).difference_with_f32(bottom_left.to_pixel(&info.gfx));
             info.draw.rect(bl, size).color(color);
@@ -247,13 +253,13 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, info: &mut RenderI
 
 
 pub fn get_proof_width(p: &Proof, info: &mut RenderInfo) -> f32 {
-    let x_scale = 1.0 - f32::exp((p.creation_time - info.time) / APPEAR_TAU);
+    let x_scale = crate::animation::ease_out_exp_second(info.time - p.creation_time, APPEAR_TAU, APPEAR_OVERSHOOT);
     return f32::max(get_proof_branches_width(p, info), get_sequent_width(&p.root, info)) * x_scale;
 }
 
 
 fn get_proof_branches_width(p: &Proof, info: &mut RenderInfo) -> f32 {
-    let mut sum = if p.branches.len() > 0 { (p.branches.len() - 1) as f32 * PROOF_MARGIN } else { 0.0 };
+    let mut sum = if p.branches.len() > 0 { (p.branches.len() - 1) as f32 * PROOF_MARGIN * info.scale } else { 0.0 };
 
     for proof in p.branches.iter() {
         sum += get_proof_width(&proof, info);
@@ -263,15 +269,15 @@ fn get_proof_branches_width(p: &Proof, info: &mut RenderInfo) -> f32 {
 }
 
 pub fn get_proof_root_width(p: &Proof, info: &mut RenderInfo) -> f32 {
-    let x_scale = 1.0 - f32::exp((p.creation_time - info.time) / APPEAR_TAU);
+    let x_scale = crate::animation::ease_out_exp_second(info.time - p.creation_time, APPEAR_TAU, APPEAR_OVERSHOOT);
     return get_sequent_width(&p.root, info) * x_scale;
 }
 
 pub fn get_sequent_width(s: &Sequent, info: &RenderInfo) -> f32 {
     let mut sum = get_character_width('⊢', info);
 
-    if s.before.len() > 0 { sum += SEQUENT_MARGIN };
-    if s.after.len() > 0 { sum += SEQUENT_MARGIN };
+    if s.before.len() > 0 { sum += SEQUENT_MARGIN * info.scale };
+    if s.after.len() > 0 { sum += SEQUENT_MARGIN * info.scale };
 
     let comma_size = COMMA_MARGIN + get_character_width(',', info);
     if s.before.len() > 0 { sum += (s.before.len() as f32 - 1.0) * comma_size };
@@ -289,7 +295,7 @@ pub fn get_formula_width(f: &Formula, info: &RenderInfo) -> f32 {
     match f {
         Formula::Operator(operator) => {
             let mut sum = get_character_width(get_operator_symbol(operator.operator_type).chars().next().unwrap(), info);
-            sum += get_operator_arity(operator.operator_type) as f32 * OPERATOR_MARGIN;
+            sum += get_operator_arity(operator.operator_type) as f32 * OPERATOR_MARGIN * info.scale;
 
             let priority = get_operator_priority(operator.operator_type);
             let parentheses_width = get_character_width('(', info) + get_character_width(')', info) ;
@@ -315,7 +321,7 @@ pub fn get_formula_width(f: &Formula, info: &RenderInfo) -> f32 {
             return get_character_width(VARIABLE_LETTERS.chars().nth(*id as usize).unwrap(), info);
         },
         Formula::NotCompleted(_) => {
-            return FIELD_SIZE;
+            return FIELD_SIZE * info.scale;
         },
     }
 }
@@ -325,7 +331,7 @@ pub fn get_character_width(char: char, info: &RenderInfo) -> f32 {
     let (_vw, vh) = info.gfx.size();
     
     match info.cached_sizes.get(&char) {
-        Some(w) => *w / vh as f32 * 2.0,
+        Some(w) => *w / vh as f32 * 2.0 * info.scale,
         None => panic!("Unknown char width. Add it to SYMBOLS constant!"),
     }
 }
@@ -398,7 +404,7 @@ fn draw_text_more_params(text: &str, position: ScreenPosition, font: &Font, scal
         let mut builder = info.draw.text(&font, text);
         
         builder.position(position.to_pixel(info.gfx).x as f32, position.to_pixel(info.gfx).y as f32)
-            .size(TEXT_SCALE * scale)
+            .size(TEXT_SCALE * scale * info.scale)
             .color(info.theme.seq_text)
             .h_align_left();
     

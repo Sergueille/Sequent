@@ -16,6 +16,7 @@ mod coord;
 mod action;
 mod game_ui;
 mod background;
+mod animation;
 
 /// Current global state of the game.
 enum GameMode {
@@ -29,6 +30,7 @@ struct GameState {
     undo_stack: Vec<UndoState>,
     redo_stack: Vec<UndoState>,
     sequent_position: ScreenSize,
+    sequent_scale: f32,
 }
 
 #[derive(Clone)]
@@ -74,7 +76,9 @@ struct Theme {
 pub const SEQUENT_SAFE_ZONE_SIDES: f32 = 0.3;
 /// Part of the screen, next to the top, where focused element shouldn't be (screen space) 
 pub const SEQUENT_SAFE_ZONE_TOP: f32 = 0.5;
-pub const CAMERA_MOVEMENT_SPEED: f32 = 5.0;
+pub const CAMERA_MOVEMENT_SPEED_X: f32 = 5.0;
+pub const CAMERA_MOVEMENT_SPEED_Y: f32 = 6.0;
+pub const CAMERA_MOVEMENT_SPEED_SCALE: f32 = 7.0;
 
 
 #[notan_main]
@@ -150,6 +154,7 @@ fn setup(gfx: &mut Graphics) -> State {
                 next_formula_index: 1,
             },
             sequent_position: ScreenSize::zero(),
+            sequent_scale: 1.0,
         }),
         bindings: action::get_default_bindings(),
         screen_ratio: 1.0,
@@ -280,6 +285,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
                                         ).collect();
 
                                         current_proof.rule_id = Some(i as u32);
+                                        current_proof.rule_set_time = app.timer.elapsed_f32();
 
                                         add_undo_entry(undo_entry, game_state);
                                     },
@@ -313,6 +319,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
                 focused_formula_field: game_state.state.formulas_position,
                 editing_formulas: game_state.state.editing_formulas,
                 logic_system: &game_state.logic_system,
+                scale: game_state.sequent_scale,
                 time: time_seconds,
                 theme: state.theme,
                 focus_rect: ScreenRect::nothing(),
@@ -372,8 +379,16 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
                 game_state.sequent_position.y
             };
 
-            game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED * current_x_shift * app.timer.delta_f32();
-            game_state.sequent_position.y -= CAMERA_MOVEMENT_SPEED * current_y_shift * app.timer.delta_f32();
+            game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED_X * current_x_shift * app.timer.delta_f32();
+            game_state.sequent_position.y -= CAMERA_MOVEMENT_SPEED_Y * current_y_shift * app.timer.delta_f32();
+
+            let target_size = if render_info.focus_rect == ScreenRect::nothing() {
+                f32::min(1.0, (state.screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 / proof_width * game_state.sequent_scale)
+            } else {
+                1.0
+            };
+
+            game_state.sequent_scale += (target_size - game_state.sequent_scale) * CAMERA_MOVEMENT_SPEED_SCALE * app.timer.delta_f32()
         }
     }
 

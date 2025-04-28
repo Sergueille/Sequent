@@ -28,3 +28,5 @@ De Morgan, et 2         !A ou !B |- !(A et B)                   2               
                         !(A ou !A) |- A ou !A                   2+              non     
                         !!A -> A |- ((!A -> A) -> A)            2+              non     du coup on a !!A -> A |- A ou !A, mais jsp si il y a un moyen plus rapide
 Contraposée             A -> B |- !B -> !A                      1               non
+                        A -> B |- !A ou B                       2               oui
+                        !A ou B |- A -> B                       2               non

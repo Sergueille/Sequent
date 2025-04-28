@@ -27,6 +27,7 @@ pub struct Proof {
     
     pub last_focused_time: f32,
     pub creation_time: f32,
+    pub rule_set_time: f32,
 }
 
 /// A sequent!
@@ -297,6 +298,7 @@ pub fn sequent_as_empty_proof(s: Sequent, time: f32) -> Proof {
         rule_id: None,
         last_focused_time: f32::NEG_INFINITY,
         creation_time: time,
+        rule_set_time: f32::NEG_INFINITY,
     };
 }
 

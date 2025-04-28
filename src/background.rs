@@ -63,7 +63,7 @@ pub fn draw_background(time: f32, draw: &mut Draw, gfx: &Graphics, state: &mut S
     for i in 0..NB_LINES {
         let width = state.cached_sizes.get(&'¬').unwrap();
 
-        let shift = MOVE_SPEED * (time - state.background_state.last_swap_time) * 2.0 * width * SIZE / 50.0;
+        let shift = MOVE_SPEED * (time - state.background_state.last_swap_time) * 2.0 * width * SIZE / crate::proof::rendering::TEXT_SCALE;
 
         let pos = ScreenPosition {
             x: base_position.x - (LINE_HEIGHT / f32::sin(ANGLE)) * i as f32,
