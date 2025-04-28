@@ -14,7 +14,6 @@ static KEYCODES: [KeyCode; 1] = [
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Action {
     NoAc,
-    Pause,
 
     /// Corresponds to an operator `slot` that will assigned by the proof system
     /// This way, the keys are the same even if a different logic system is used
@@ -28,6 +27,10 @@ pub enum Action {
 
     Undo,
     Redo,
+
+    ToggleKeys,
+
+    Exit,
 }
 
 pub fn get_default_bindings() -> Bindings {
@@ -92,10 +95,12 @@ pub fn get_default_bindings() -> Bindings {
     res.insert(Action::NextField, KeyCode::Right);
     res.insert(Action::PreviousField, KeyCode::Left);
 
-    res.insert(Action::Undo, KeyCode::Back);
-    res.insert(Action::Redo, KeyCode::Return);
+    res.insert(Action::Undo, KeyCode::W);
+    res.insert(Action::Redo, KeyCode::X);
 
-    res.insert(Action::Redo, KeyCode::Return);
+    res.insert(Action::ToggleKeys, KeyCode::F1);
+
+    res.insert(Action::Exit, KeyCode::Escape);
 
     return res;
 }
@@ -125,5 +130,8 @@ pub fn is_down(action: Action, bindings: &HashMap<Action, KeyCode>, app: &App) -
 }
 
 pub fn key_code_display(code: KeyCode) -> String {
-    return format!("{:?}", code); // Temporary solution
+    match code {
+        KeyCode::Escape => String::from("Esc"),
+        _ => format!("{:?}", code),
+    }
 }

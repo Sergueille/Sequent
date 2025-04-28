@@ -31,6 +31,7 @@ struct GameState {
     redo_stack: Vec<UndoState>,
     sequent_position: ScreenSize,
     sequent_scale: f32,
+    keys_visibility: bool,
 }
 
 #[derive(Clone)]
@@ -155,6 +156,7 @@ fn setup(gfx: &mut Graphics) -> State {
             },
             sequent_position: ScreenSize::zero(),
             sequent_scale: 1.0,
+            keys_visibility: true,
         }),
         bindings: action::get_default_bindings(),
         screen_ratio: 1.0,
@@ -211,8 +213,6 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             }
 
             let special_mode = action::is_down(action::Action::SpecialRuleMode, &state.bindings, &app);
-
-            game_ui::render_ui(special_mode, state.theme, &state.bindings, &state.symbol_font, &mut draw, &gfx, &game_state);
 
             if game_state.state.editing_formulas {
                 // Check for operator insertion
@@ -333,62 +333,15 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
 
             draw_proof(&game_state.state.proof, base_position.add(game_state.sequent_position), &mut render_info);
 
-            // If larger than screen move to center focused element, otherwise center the sequent
-            let current_x_shift = if render_info.focus_rect == ScreenRect::nothing() {
-                game_state.sequent_position.x
-            }
-            else if proof_width > (state.screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 {
-                render_info.focus_rect.center().x
-            }
-            else {
-                game_state.sequent_position.x
-            };
+            adjust_proof_position(state.screen_ratio, proof_width, game_state, render_info.focus_rect, &app);
 
-            /* Other possible behavior: if the focused element is near borders or outside screen, move sequent
-
-            let safe_left = SEQUENT_SAFE_ZONE_SIDES - screen_ratio;
-            let safe_right = - SEQUENT_SAFE_ZONE_SIDES + screen_ratio;
-
-            let overflow_left = render_info.focus_rect.bottom_left.x < safe_left;
-            let overflow_right = render_info.focus_rect.top_right.x > safe_right;
-
-            let current_x_shift = if render_info.focus_rect == ScreenRect::nothing() {
-                0.0
+            if action::was_pressed(action::Action::ToggleKeys, &state.bindings, &app) {
+                game_state.keys_visibility = !game_state.keys_visibility;
             }
-            else if overflow_left && overflow_right {
-                render_info.focus_rect.center().x
-            }
-            else if overflow_left {
-                render_info.focus_rect.bottom_left.x - safe_left
-            }
-            else if overflow_right {
-                render_info.focus_rect.top_right.x - safe_right
-            }
-            else {
-                0.0
-            };
-            */
 
-            let current_y_shift = if render_info.focus_rect == ScreenRect::nothing() {
-                game_state.sequent_position.y
+            if game_state.keys_visibility {
+                game_ui::render_ui(special_mode, &state.symbol_font, &mut draw, &gfx, &state);
             }
-            else if -game_state.sequent_position.y + render_info.focus_rect.top_right.y > 1.0 - SEQUENT_SAFE_ZONE_TOP {
-                render_info.focus_rect.top_right.y - 1.0 + SEQUENT_SAFE_ZONE_TOP
-            }
-            else {
-                game_state.sequent_position.y
-            };
-
-            game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED_X * current_x_shift * app.timer.delta_f32();
-            game_state.sequent_position.y -= CAMERA_MOVEMENT_SPEED_Y * current_y_shift * app.timer.delta_f32();
-
-            let target_size = if render_info.focus_rect == ScreenRect::nothing() {
-                f32::min(1.0, (state.screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 / proof_width * game_state.sequent_scale)
-            } else {
-                1.0
-            };
-
-            game_state.sequent_scale += (target_size - game_state.sequent_scale) * CAMERA_MOVEMENT_SPEED_SCALE * app.timer.delta_f32()
         }
     }
 
@@ -445,4 +398,64 @@ fn calculation_test() {
     let test = proof_or_fake(seq);
 
     println!("seq = {}", test);
+}
+
+
+fn adjust_proof_position(screen_ratio: f32, proof_width: f32, game_state: &mut GameState, focus_rect: ScreenRect, app: &App) {
+    // If larger than screen move to center focused element, otherwise center the sequent
+    let current_x_shift = if focus_rect == ScreenRect::nothing() {
+        game_state.sequent_position.x
+    }
+    else if proof_width > (screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 {
+        focus_rect.center().x
+    }
+    else {
+        game_state.sequent_position.x
+    };
+
+    /* Other possible behavior: if the focused element is near borders or outside screen, move sequent
+
+    let safe_left = SEQUENT_SAFE_ZONE_SIDES - screen_ratio;
+    let safe_right = - SEQUENT_SAFE_ZONE_SIDES + screen_ratio;
+
+    let overflow_left = render_info.focus_rect.bottom_left.x < safe_left;
+    let overflow_right = render_info.focus_rect.top_right.x > safe_right;
+
+    let current_x_shift = if render_info.focus_rect == ScreenRect::nothing() {
+        0.0
+    }
+    else if overflow_left && overflow_right {
+        render_info.focus_rect.center().x
+    }
+    else if overflow_left {
+        render_info.focus_rect.bottom_left.x - safe_left
+    }
+    else if overflow_right {
+        render_info.focus_rect.top_right.x - safe_right
+    }
+    else {
+        0.0
+    };
+    */
+
+    let current_y_shift = if focus_rect == ScreenRect::nothing() {
+        game_state.sequent_position.y
+    }
+    else if -game_state.sequent_position.y + focus_rect.top_right.y > 1.0 - SEQUENT_SAFE_ZONE_TOP {
+        focus_rect.top_right.y - 1.0 + SEQUENT_SAFE_ZONE_TOP
+    }
+    else {
+        game_state.sequent_position.y
+    };
+
+    game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED_X * current_x_shift * app.timer.delta_f32();
+    game_state.sequent_position.y -= CAMERA_MOVEMENT_SPEED_Y * current_y_shift * app.timer.delta_f32();
+
+    let target_size = if focus_rect == ScreenRect::nothing() {
+        f32::min(1.0, (screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 / proof_width * game_state.sequent_scale)
+    } else {
+        1.0
+    };
+
+    game_state.sequent_scale += (target_size - game_state.sequent_scale) * CAMERA_MOVEMENT_SPEED_SCALE * app.timer.delta_f32();
 }

@@ -28,7 +28,7 @@ pub const APPEAR_RULE_OVERSHOOT: f32 = 2.0;
 pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
 
 /// Letters used for variables, in order
-pub const VARIABLE_LETTERS: &str = "ABCDEFGH";
+pub const VARIABLE_LETTERS: &str = "ABCDEFGHIJK";
 
 pub struct RenderInfo<'a> {
     pub draw: &'a mut Draw,

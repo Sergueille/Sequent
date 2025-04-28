@@ -13,9 +13,7 @@ APPARENCE
 - centrer la vue sur le sequent actuel plutôt que sur le champ de texte actuel?
 - plus d'animations sur l'édition de sequents
 - meilleur alignement du texte des sequents
-- afficher toutes les touches possible à l'écran (undo, redo, etc...)
-    -> option pour cacher
-- lettres en arrière plan
+- afficher alt rules conditionnellement
 - particules + shake?
 
 
