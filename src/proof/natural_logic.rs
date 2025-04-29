@@ -447,6 +447,7 @@ impl Rule for BottomE {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct RAA { }
 
 impl Rule for RAA {

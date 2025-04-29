@@ -72,16 +72,17 @@ pub fn draw_background(time: f32, draw: &mut Draw, gfx: &Graphics, state: &mut S
 
         let direction = if i % 2 == 0 { 1.0 } else { -1.0 };
 
-        let x = pos.x as f32 + f32::cos(ANGLE) * shift * direction;
-        let y = pos.y as f32 - f32::sin(ANGLE) * shift * direction;
+        let x = pos.x + f32::cos(ANGLE) * shift * direction;
+        let y = pos.y - f32::sin(ANGLE) * shift * direction;
 
-        draw.text(&state.symbol_font, &state.background_state.strings[i as usize])
-            .position(x, y) //pos.x as f32, pos.y as f32)
+        let mut text = draw.text(&state.symbol_font, &state.background_state.strings[i as usize]);
+        text.position(x, y) //pos.x as f32, pos.y as f32)
             .rotate_from((x, y), -ANGLE)
-            .size(SIZE)
             .color(state.theme.bg_text)
             .h_align_left()
             .v_align_bottom();
+
+        set_text_size(&mut text, SIZE, gfx);
     }
 
 }

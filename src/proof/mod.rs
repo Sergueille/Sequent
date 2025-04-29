@@ -228,7 +228,7 @@ pub fn formula_as_field(f: &mut Formula) -> &mut FormulaField {
 
 
 /// If index is None, returns all fields
-pub fn search_fields_by_id_in_proof<'a>(p: &'a mut Proof, index: Option<u32>) -> Vec<&'a mut Formula> {
+pub fn search_fields_by_id_in_proof(p: &mut Proof, index: Option<u32>) -> Vec<&mut Formula> {
     let mut res = Vec::new();
     _search_fields_by_id_in_proof(p, index,&mut res);
     return res;
@@ -275,7 +275,7 @@ fn search_field_id_in_formula<'a>(f: &'a mut Formula, index: Option<u32>, res: &
     }
 } 
 
-pub fn get_first_unfinished_proof<'a>(p: &'a mut Proof) -> Option<&'a mut Proof> {
+pub fn get_first_unfinished_proof(p: &mut Proof) -> Option<&mut Proof> {
     match p.rule_id {
         None => Some(p),
         Some(_) => {
@@ -302,7 +302,7 @@ pub fn sequent_as_empty_proof(s: Sequent, time: f32) -> Proof {
     };
 }
 
-pub fn execute_on_first_operator_of_type<T>(formulas: &Vec<Formula>, op_type: OperatorType, f: &dyn Fn(usize, &Option<Box<Formula>>, &Option<Box<Formula>>) -> T, otherwise: T) -> T {
+pub fn execute_on_first_operator_of_type<T>(formulas: &[Formula], op_type: OperatorType, f: &dyn Fn(usize, &Option<Box<Formula>>, &Option<Box<Formula>>) -> T, otherwise: T) -> T {
     for (i, formula) in formulas.iter().enumerate() {
         match formula {
             super::Formula::Operator(op) => {

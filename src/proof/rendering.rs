@@ -17,6 +17,7 @@ pub const LINE_HEIGHT: f32 = 120e-3;
 pub const BAR_HEIGHT: f32 = 5e-3;
 pub const PAR_POSITION: f32 = 100e-3;
 pub const OPERATOR_MARGIN: f32 = 10e-3;
+pub const VARIABLE_Y_SHIFT: f32 = -7e-3;
 
 pub const RULE_MARGIN: f32 = 10e-3;
 pub const RULE_TEXT_SCALE: f32 = 0.5; // 1 is normal text
@@ -84,17 +85,19 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     bl_pos.x += bar_left_pos;
     bl_pos.y += PAR_POSITION * info.scale;
 
-    let mut tr_pos = bl_pos.clone();
+    let mut tr_pos = bl_pos;
     tr_pos.x += total_width - bar_right_pos - bar_left_pos;
     tr_pos.y += BAR_HEIGHT * info.scale;
 
     let bar_color = if p.last_focused_time == info.time { info.theme.seq_bar_focused } else { info.theme.seq_bar };
 
-    let bl = bl_pos.to_pixel(info.gfx).as_f32_couple();
+    let mut bl = bl_pos.to_pixel(info.gfx).as_couple();
     let mut size = tr_pos.difference_with(bl_pos);
     size.x *= appear_scale;
 
-    info.draw.rect(bl, size.to_pixel_f32(info.gfx))
+    bl.1 = f32::round(bl.1); // Make sur the bar have a consistent size by snapping no the nearest pixel
+
+    info.draw.rect(bl, size.to_pixel(info.gfx))
         .color(bar_color);
 
     let rule_scale = crate::animation::ease_out_exp_second(info.time - p.rule_set_time , APPEAR_TAU, APPEAR_RULE_OVERSHOOT);
@@ -103,7 +106,7 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     match p.rule_id {
         Some(id) => {
             let text = format!("({})", info.logic_system.rules[id as usize].display_text());
-            let mut position = tr_pos.clone();
+            let mut position = tr_pos;
             position.x += RULE_MARGIN;
 
             draw_text_more_params(&text, position, info.symbol_font, RULE_TEXT_SCALE * rule_scale, VerticalAlign::Middle, info);
@@ -118,7 +121,7 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     pos.y += LINE_HEIGHT * info.scale;
 
     for child in p.branches.iter() {
-        draw_proof(&child, pos, info);
+        draw_proof(child, pos, info);
 
         pos.x += get_proof_width(child, info);
         pos.x += PROOF_MARGIN * info.scale;
@@ -127,7 +130,7 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     // Update focus position
     if p.last_focused_time == info.time {
         info.focus_rect = ScreenRect {
-            bottom_left: bottom_left,
+            bottom_left,
             top_right: ScreenPosition { x: bottom_left.x + total_width, y: bottom_left.y + LINE_HEIGHT * info.scale }
         }
     }
@@ -181,7 +184,7 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
 
             match left_f {
                 Some(f) => {
-                    let need_p = needs_parentheses(priority, &f);
+                    let need_p = needs_parentheses(priority, f);
 
                     if need_p {
                         draw_pos.x += draw_text(&opening_parenthesis, draw_pos, info.text_font, info) * squish_x;
@@ -199,11 +202,11 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
                 None => {},
             }
             
-            draw_pos.x += draw_text(&get_operator_symbol(operator.operator_type), draw_pos, info.symbol_font, info) * squish_x;
+            draw_pos.x += draw_text(get_operator_symbol(operator.operator_type), draw_pos, info.symbol_font, info) * squish_x;
 
             match right_f {
                 Some(f) => {
-                    let need_p = needs_parentheses(priority, &f);
+                    let need_p = needs_parentheses(priority, f);
 
                     draw_pos.x += OPERATOR_MARGIN * info.scale * squish_x;
 
@@ -222,7 +225,8 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
             }
         },
         Formula::Variable(id) => {
-            draw_text(&VARIABLE_LETTERS.chars().nth(*id as usize).unwrap().to_string(), bottom_left, info.text_font, info);
+            let actual_pos = ScreenPosition { x: bottom_left.x, y: bottom_left.y + VARIABLE_Y_SHIFT * info.scale };
+            draw_text(&VARIABLE_LETTERS.chars().nth(*id as usize).unwrap().to_string(), actual_pos, info.text_font, info);
         },
         Formula::NotCompleted(field_info) => {
             let color = if info.editing_formulas && field_info.id == info.focused_formula_field { 
@@ -231,12 +235,12 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
                 info.theme.seq_field
             };
 
-            let bl = bottom_left.to_pixel(info.gfx).as_f32_couple();
-            let mut top_right = bottom_left.clone();
+            let bl = bottom_left.to_pixel(info.gfx).as_couple();
+            let mut top_right = bottom_left;
             top_right.x += FIELD_SIZE * info.scale;
             top_right.y += FIELD_HEIGHT * info.scale;
 
-            let size = top_right.to_pixel(&info.gfx).difference_with_f32(bottom_left.to_pixel(&info.gfx));
+            let size = top_right.difference_with(bottom_left).to_pixel(info.gfx);
             info.draw.rect(bl, size).color(color);
 
             // Update focus position
@@ -245,7 +249,7 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
                     bottom_left, top_right
                 };
 
-                info.focus_rect = ScreenRect::merge(info.focus_rect.clone(), rect);
+                info.focus_rect = ScreenRect::merge(info.focus_rect, rect);
             }
         },
     }
@@ -262,7 +266,7 @@ fn get_proof_branches_width(p: &Proof, info: &mut RenderInfo) -> f32 {
     let mut sum = if p.branches.len() > 0 { (p.branches.len() - 1) as f32 * PROOF_MARGIN * info.scale } else { 0.0 };
 
     for proof in p.branches.iter() {
-        sum += get_proof_width(&proof, info);
+        sum += get_proof_width(proof, info);
     }
 
     return sum;
@@ -284,7 +288,7 @@ pub fn get_sequent_width(s: &Sequent, info: &RenderInfo) -> f32 {
     if s.before.len() > 0 { sum += (s.after.len() as f32 - 1.0) * comma_size };
 
     for f in s.before.iter().chain(s.after.iter()) {
-        sum += get_formula_width(&f, info);
+        sum += get_formula_width(f, info);
     }
 
     return sum;
@@ -327,11 +331,9 @@ pub fn get_formula_width(f: &Formula, info: &RenderInfo) -> f32 {
 }
 
 
-pub fn get_character_width(char: char, info: &RenderInfo) -> f32 {
-    let (_vw, vh) = info.gfx.size();
-    
+pub fn get_character_width(char: char, info: &RenderInfo) -> f32 {    
     match info.cached_sizes.get(&char) {
-        Some(w) => *w / vh as f32 * 2.0 * info.scale,
+        Some(w) => *w / 1080.0 * 2.0 * info.scale, // Why 1080.0? No one knows...
         None => panic!("Unknown char width. Add it to SYMBOLS constant!"),
     }
 }
@@ -358,10 +360,10 @@ pub fn compute_char_sizes(text_font: &notan::text::Font, symbol_font: &notan::te
         );
     }
 
-    for c in 'A'..(('Z' as u8 + 1) as char) {
+    for c in 'A'..((b'Z' + 1) as char) {
         insert_char(c, text_font, &mut res, &mut calculator)
     }
-    for c in 'a'..(('z' as u8 + 1) as char) {
+    for c in 'a'..((b'z' + 1) as char) {
         insert_char(c, text_font, &mut res, &mut calculator)
     }
 
@@ -400,13 +402,26 @@ fn draw_text_more_params(text: &str, position: ScreenPosition, font: &Font, scal
         VerticalAlign::Bottom => TextSection::v_align_bottom,
     };
 
-    {
-        let mut builder = info.draw.text(&font, text);
+    { // Actual text to be rendered
+        let mut builder = info.draw.text(font, text);
         
-        builder.position(position.to_pixel(info.gfx).x as f32, position.to_pixel(info.gfx).y as f32)
-            .size(TEXT_SCALE * scale * info.scale)
+        builder.position(position.to_pixel(info.gfx).x, position.to_pixel(info.gfx).y)
             .color(info.theme.seq_text)
             .h_align_left();
+
+        set_text_size(&mut builder, TEXT_SCALE * scale * info.scale, info.gfx);
+
+        align_fn(&mut builder);
+    }
+
+    { // Fake, transparent text to get the correct text width
+        let mut builder = info.draw.text(font, text);
+        
+        builder.position(f32::round(position.to_pixel(info.gfx).x), position.to_pixel(info.gfx).y)
+            .color(Color::from_hex(0x00000000))
+            .h_align_left();
+
+        set_text_size(&mut builder, TEXT_SCALE * scale * info.scale, info.gfx);
     
         align_fn(&mut builder);
     }

@@ -10,3 +10,12 @@ notan = { version = "0.12.1", features = ["text", "glyph", "egui", "extra"] }
 
 [profile.dev]
 opt-level = 2
+
+[lints.clippy]
+disallowed-methods = "deny"
+needless_return = "allow"
+single_match = "allow"
+collapsible_if = "allow"
+too_many_arguments = "allow"
+len_zero = "allow"
+type_complexity = "allow"

@@ -23,8 +23,8 @@ impl ScreenPosition {
         let ratio = w as f32 / h as f32;
 
         return PixelPosition {
-            x: (h as f32 * 0.5 * (self.x + ratio)).round() as i32,
-            y: (h as f32 * 0.5 * (1.0 - self.y)).round() as i32,
+            x: (h as f32 * 0.5 * (self.x + ratio)),
+            y: (h as f32 * 0.5 * (1.0 - self.y)),
         }
     }
 
@@ -57,13 +57,8 @@ pub struct ScreenSize {
 }
 
 impl ScreenSize {
-    pub fn to_pixel(self, gfx: &Graphics) -> (i32, i32) {
+    pub fn to_pixel(self, gfx: &Graphics) -> (f32, f32) {
         return ScreenPosition { x: self.x, y: self.y }.to_pixel(gfx).difference_with(ScreenPosition { x: 0.0, y: 0.0 }.to_pixel(gfx));
-    }
-
-    pub fn to_pixel_f32(self, gfx: &Graphics) -> (f32, f32) {
-        let (rx, ry) = self.to_pixel(gfx);
-        return (rx as f32, ry as f32);
     }
 
     pub fn scale(self, factor: f32) -> ScreenSize {
@@ -125,48 +120,38 @@ impl ScreenRect {
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct PixelPosition {
-    pub x: i32,
-    pub y: i32,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl PixelPosition {
-    pub fn from_couple((x, y): (i32, i32)) -> PixelPosition {
+    pub fn from_couple((x, y): (f32, f32)) -> PixelPosition {
         return PixelPosition { x, y };
     }
 
-    pub fn as_couple(&self) -> (i32, i32) {
+    pub fn as_couple(&self) -> (f32, f32) {
         return (self.x, self.y);
-    }
-
-    pub fn as_f32_couple(&self) -> (f32, f32) {
-        return (self.x as f32, self.y as f32);
     }
 
     pub fn to_screen(self, gfx: &Graphics) -> ScreenPosition {
         let (w, h) = gfx.size();
 
         return ScreenPosition {
-            x: (self.x as f32 / h as f32) * 2.0 - w as f32,
-            y: (self.y as f32 / h as f32) * 2.0 - h as f32,
+            x: (self.x / h as f32) * 2.0 - w as f32,
+            y: (self.y / h as f32) * 2.0 - h as f32,
         }
     }
 
-    /// Returns `self` - `other`
-    pub fn difference_with(&self, other: PixelPosition) -> (i32, i32) {
+    pub fn difference_with(&self, other: PixelPosition) -> (f32, f32) {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
-
         return (dx, dy);
     }
-
-    /// difference_with, but parsed to `f32` for convenience
-    pub fn difference_with_f32(&self, other: PixelPosition) -> (f32, f32) {
-        let (dx, dy) = self.difference_with(other);
-        return (dx as f32, dy as f32);
-    }
-
-    pub fn new(x: i32, y: i32) -> PixelPosition {
-        return PixelPosition { x, y };
-    }
 }
+
+pub fn set_text_size(builder: &mut notan::draw::TextSection, size: f32, gfx: &Graphics) {
+    #[allow(clippy::disallowed_methods)] // This method is only allowed here!
+    builder.size(size * gfx.size().1 as f32 / 1080.0);
+}
+
 

@@ -1,0 +1,2 @@
+
+disallowed-methods = [ { path = "notan::draw::texts::text::TextSection::size", reason = "Use coord::set_text_size instead." } ]

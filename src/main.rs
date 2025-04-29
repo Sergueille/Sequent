@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![deny(clippy::disallowed_methods)]
 
 use std::collections::HashMap;
 
@@ -172,11 +173,15 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
     let time_seconds = app.timer.elapsed().as_secs_f32();
 
     // Draw FPS
-    draw.text(&state.text_font, &format!("{}ms / {}FPS", ((1.0 / app.timer.fps()) * 1000.0).round(), app.timer.fps().round()))
-        .position(2.0, 2.0)
-        .size(20.0)
-        .v_align_top()
-        .h_align_left();
+    {
+        let fps_text = format!("{}ms / {}FPS", ((1.0 / app.timer.fps()) * 1000.0).round(), app.timer.fps().round());
+        let mut txt = draw.text(&state.text_font, &fps_text);
+        txt.position(2.0, 2.0)
+            .v_align_top()
+            .h_align_left();
+
+        set_text_size(&mut txt, 20.0, gfx);
+    }
 
     // EGUI can be used here, maybe later for forms or menus
     let mut ui_output = plugins.egui(|ctx| {
@@ -195,24 +200,24 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
     let (w, h) = gfx.size();
     state.screen_ratio = w as f32 / h as f32;
 
-    background::draw_background(app.timer.elapsed_f32(), &mut draw, &gfx, state);
+    background::draw_background(app.timer.elapsed_f32(), &mut draw, gfx, state);
 
     match &mut state.mode {
         GameMode::Ingame(game_state) => {
 
             // Handle undo/redo
-            if action::was_pressed(action::Action::Undo, &state.bindings, &app) {
+            if action::was_pressed(action::Action::Undo, &state.bindings, app) {
                 if !undo(game_state) {
                     // TODO: undo failed; feedback
                 }
             }
-            else if action::was_pressed(action::Action::Redo, &state.bindings, &app) {
+            else if action::was_pressed(action::Action::Redo, &state.bindings, app) {
                 if !redo(game_state) {
                     // TODO: redo failed; feedback
                 }
             }
 
-            let special_mode = action::is_down(action::Action::SpecialRuleMode, &state.bindings, &app);
+            let special_mode = action::is_down(action::Action::SpecialRuleMode, &state.bindings, app);
 
             if game_state.state.editing_formulas {
                 // Check for operator insertion
@@ -231,7 +236,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
 
                 // Check for variable insertion
                 for i in 0..MAX_VARIABLE_COUNT {
-                    if action::was_pressed(action::Action::InsertVariable(i as u32), &state.bindings, app) {
+                    if action::was_pressed(action::Action::InsertVariable(i), &state.bindings, app) {
                         
                         record_undo_entry(game_state);
                         match proof::place_variable(i, game_state.state.formulas_position, &mut game_state.state.proof) {
@@ -333,14 +338,14 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
 
             draw_proof(&game_state.state.proof, base_position.add(game_state.sequent_position), &mut render_info);
 
-            adjust_proof_position(state.screen_ratio, proof_width, game_state, render_info.focus_rect, &app);
+            adjust_proof_position(state.screen_ratio, proof_width, game_state, render_info.focus_rect, app);
 
-            if action::was_pressed(action::Action::ToggleKeys, &state.bindings, &app) {
+            if action::was_pressed(action::Action::ToggleKeys, &state.bindings, app) {
                 game_state.keys_visibility = !game_state.keys_visibility;
             }
 
             if game_state.keys_visibility {
-                game_ui::render_ui(special_mode, &state.symbol_font, &mut draw, &gfx, &state);
+                game_ui::render_ui(special_mode, &state.symbol_font, &mut draw, gfx, state);
             }
         }
     }

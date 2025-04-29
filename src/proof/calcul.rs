@@ -22,7 +22,7 @@ fn sequent_to_sequentcalc(sequent: Sequent) -> SequentCalc{
 
 
 // Verify if a formula is contain in a vector of formulas
-fn member(formula: &Formula, list: &Vec<Formula>) -> bool{
+fn member(formula: &Formula, list: &[Formula]) -> bool{
     for elmt in list.iter() {if elmt == formula {return true}}
     false
 }
@@ -42,8 +42,8 @@ fn top_calc(seq: &SequentCalc) -> bool{
 
 // Check if the axiom rule can be applied
 fn axiom_calc(seq: &SequentCalc) -> bool{
-    for elmt in seq.before.iter(){ if member(&elmt, &seq.after) || member(&elmt, &seq.after_var) {return true}}
-    for elmt in seq.before_var.iter(){ if member(&elmt, &seq.after) || member(&elmt, &seq.after_var) {return true}}
+    for elmt in seq.before.iter(){ if member(elmt, &seq.after) || member(elmt, &seq.after_var) {return true}}
+    for elmt in seq.before_var.iter(){ if member(elmt, &seq.after) || member(elmt, &seq.after_var) {return true}}
     false
 }
 

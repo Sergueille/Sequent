@@ -15,5 +15,5 @@ APPARENCE
 - meilleur alignement du texte des sequents
 - afficher alt rules conditionnellement
 - particules + shake?
-
+- arrière plan bug quand pas en 1080p 
 

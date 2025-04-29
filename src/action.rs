@@ -36,7 +36,7 @@ pub enum Action {
 pub fn get_default_bindings() -> Bindings {
     let mut res = HashMap::new();
 
-    let op_keys = vec![
+    let op_keys = [
         KeyCode::Q,
         KeyCode::S,
         KeyCode::D,
@@ -52,7 +52,7 @@ pub fn get_default_bindings() -> Bindings {
     }
 
     // Default for variables
-    let var_keys = vec![
+    let var_keys = [
         KeyCode::A,
         KeyCode::Z,
         KeyCode::E,
@@ -70,7 +70,7 @@ pub fn get_default_bindings() -> Bindings {
     }
 
     // Default for rules
-    let var_keys = vec![
+    let var_keys = [
         KeyCode::A,
         KeyCode::Q,
         KeyCode::Z,
