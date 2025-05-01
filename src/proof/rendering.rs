@@ -1,6 +1,7 @@
 
 use std::collections::HashMap;
 
+use crate::animation;
 use crate::proof::*;
 use crate::coord::*;
 use notan::prelude::*;
@@ -10,8 +11,9 @@ use notan::draw::*;
 pub const PROOF_MARGIN: f32 = 200e-3;
 pub const SEQUENT_MARGIN: f32 = 30e-3;
 pub const COMMA_MARGIN: f32 = 10e-3;
-pub const FIELD_SIZE: f32 = 70e-3;
+pub const FIELD_WIDTH: f32 = 55e-3;
 pub const FIELD_HEIGHT: f32 = 70e-3;
+pub const FIELD_Y_SHIFT: f32 = 3e-3;
 pub const TEXT_SCALE: f32 = 50.0;
 pub const LINE_HEIGHT: f32 = 120e-3;
 pub const BAR_HEIGHT: f32 = 5e-3;
@@ -25,6 +27,7 @@ pub const RULE_TEXT_SCALE: f32 = 0.5; // 1 is normal text
 pub const APPEAR_TAU: f32 = 0.05;
 pub const APPEAR_OVERSHOOT: f32 = 1.0;
 pub const APPEAR_RULE_OVERSHOOT: f32 = 2.0;
+pub const FIELD_APPEAR_TAU: f32 = 0.02;
 
 pub const SYMBOLS: &str = "¬→∧∨⊤⊥⊢";
 
@@ -45,6 +48,7 @@ pub struct RenderInfo<'a> {
     pub theme: crate::Theme,
     // Position of the currently focused element. Set by the draw_proof function
     pub focus_rect: ScreenRect,
+    pub fields_creation_time: &'a mut HashMap<u32, f32>,
 }
 
 
@@ -235,13 +239,17 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
                 info.theme.seq_field
             };
 
-            let bl = bottom_left.to_pixel(info.gfx).as_couple();
-            let mut top_right = bottom_left;
-            top_right.x += FIELD_SIZE * info.scale;
+            let mut bl = bottom_left;
+            bl.y += FIELD_Y_SHIFT * info.scale;
+
+            let mut top_right = bl;
+            top_right.x += FIELD_WIDTH * info.scale;
             top_right.y += FIELD_HEIGHT * info.scale;
 
-            let size = top_right.difference_with(bottom_left).to_pixel(info.gfx);
-            info.draw.rect(bl, size).color(color);
+            let mut size = top_right.difference_with(bottom_left);
+            size.x *= get_or_create_field_size(field_info.id, info.fields_creation_time, info.time);
+            
+            info.draw.rect(bl.to_pixel(info.gfx).as_couple(), size.to_pixel(info.gfx)).color(color);
 
             // Update focus position
             if info.editing_formulas && field_info.id == info.focused_formula_field {
@@ -277,7 +285,7 @@ pub fn get_proof_root_width(p: &Proof, info: &mut RenderInfo) -> f32 {
     return get_sequent_width(&p.root, info) * x_scale;
 }
 
-pub fn get_sequent_width(s: &Sequent, info: &RenderInfo) -> f32 {
+pub fn get_sequent_width(s: &Sequent, info: &mut RenderInfo) -> f32 {
     let mut sum = get_character_width('⊢', info);
 
     if s.before.len() > 0 { sum += SEQUENT_MARGIN * info.scale };
@@ -295,7 +303,7 @@ pub fn get_sequent_width(s: &Sequent, info: &RenderInfo) -> f32 {
 }
 
 
-pub fn get_formula_width(f: &Formula, info: &RenderInfo) -> f32 {
+pub fn get_formula_width(f: &Formula, info: &mut RenderInfo) -> f32 {
     match f {
         Formula::Operator(operator) => {
             let mut sum = get_character_width(get_operator_symbol(operator.operator_type).chars().next().unwrap(), info);
@@ -324,8 +332,8 @@ pub fn get_formula_width(f: &Formula, info: &RenderInfo) -> f32 {
         Formula::Variable(id) => {
             return get_character_width(VARIABLE_LETTERS.chars().nth(*id as usize).unwrap(), info);
         },
-        Formula::NotCompleted(_) => {
-            return FIELD_SIZE * info.scale;
+        Formula::NotCompleted(field_info) => {
+            return FIELD_WIDTH * info.scale * get_or_create_field_size(field_info.id, info.fields_creation_time, info.time);
         },
     }
 }
@@ -427,5 +435,19 @@ fn draw_text_more_params(text: &str, position: ScreenPosition, font: &Font, scal
     }
 
     return info.draw.last_text_bounds().width / info.gfx.size().1 as f32 * 2.0;
+}
+
+fn get_or_create_field_size(field_id: u32, table: &mut HashMap<u32, f32>, time: f32) -> f32 {
+    let creation_time = match table.get(&field_id) {
+        Some(t) => { 
+            *t
+        }
+        None => {
+            table.insert(field_id, time);
+            time
+        },
+    };
+
+    return animation::ease_out_exp(time - creation_time, FIELD_APPEAR_TAU);
 }
 

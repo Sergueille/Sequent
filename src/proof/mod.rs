@@ -158,9 +158,9 @@ pub fn place_uncompleted_operator(op: OperatorType, field_id: u32, proof: &mut P
             new_formula = Formula::Operator(Operator {
                 operator_type: op, 
                 arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
-                    id: field.id, // Copy previous index 
-                    next_id: field.next_id, 
-                    prev_id: field.prev_id 
+                    id: *next_index, 
+                    next_id: if field.next_id == field.id { *next_index } else { field.next_id }, 
+                    prev_id: if field.prev_id == field.id { *next_index } else { field.prev_id }, 
                 }))),
                 arg2: None,
             });
@@ -172,12 +172,12 @@ pub fn place_uncompleted_operator(op: OperatorType, field_id: u32, proof: &mut P
                 arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
                     id: *next_index, 
                     next_id: *next_index + 1, 
-                    prev_id: if field.prev_id == field.id { *next_index + 1 } else { field.prev_id } 
+                    prev_id: if field.prev_id == field.id { *next_index + 1 } else { field.prev_id },
                 }))),
                 arg2: Some(Box::new(Formula::NotCompleted(FormulaField {
                     id: *next_index + 1, 
-                    next_id: if field.next_id == field.id { *next_index } else { field.next_id } , 
-                    prev_id: *next_index
+                    next_id: if field.next_id == field.id { *next_index } else { field.next_id }, 
+                    prev_id: *next_index,
                 }))),
             });
         }
@@ -199,7 +199,15 @@ pub fn place_uncompleted_operator(op: OperatorType, field_id: u32, proof: &mut P
         next_id = if first_field.next_id == first_field.id { None } else { Some(first_field.next_id) };
     }
     else if arity == 1 {
-        next_id = Some(first_field.id);
+        for f in search_fields_by_id_in_proof(proof, Some(first_field.prev_id)).into_iter() {
+            formula_as_field(f).next_id = *next_index;
+        };
+        for f in search_fields_by_id_in_proof(proof, Some(first_field.next_id)).into_iter() {
+            formula_as_field(f).prev_id = *next_index;
+        };
+
+        next_id = Some(*next_index);
+        *next_index += 1;
     }
     else {
         if first_field.prev_id != first_field.id { 
