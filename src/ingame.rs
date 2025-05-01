@@ -4,6 +4,16 @@ use crate::*;
 pub const SCREEN_SHAKE_TAU: f32 = 0.1;
 pub const SCREEN_SHAKE_AMPLITUDE: f32 = 0.01;
 
+pub struct GameState {
+    pub logic_system: LogicSystem,
+    pub state: UndoState,
+    pub undo_stack: Vec<UndoState>,
+    pub redo_stack: Vec<UndoState>,
+    pub sequent_position: ScreenSize,
+    pub sequent_scale: f32,
+    pub keys_visibility: bool,
+    pub last_shake_time: f32,
+}
 
 pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut Draw) {
 

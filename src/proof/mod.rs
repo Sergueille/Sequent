@@ -13,6 +13,8 @@ pub trait Rule {
     /// next_field_id should be increased if new empty fields are created. Otherwise, it must not be modified.
     fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32); 
     /// Check if the sequents above the root of the proofs corresponds to the rule.
+    /// 
+    /// TODO: Currently the verification is NOT implemented 
     fn check_validity(&self, proof: &Proof) -> bool; 
     /// Text to be displayed to the right of the horizontal bar.
     fn display_text(&self) -> &'static str; 

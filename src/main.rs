@@ -23,21 +23,10 @@ mod ingame;
 /// Current global state of the game.
 #[allow(clippy::large_enum_variant)]
 enum GameMode {
-    Ingame(GameState),
+    Ingame(ingame::GameState),
     Other,
 }
 
-
-struct GameState {
-    logic_system: LogicSystem,
-    state: UndoState,
-    undo_stack: Vec<UndoState>,
-    redo_stack: Vec<UndoState>,
-    sequent_position: ScreenSize,
-    sequent_scale: f32,
-    keys_visibility: bool,
-    last_shake_time: f32,
-}
 
 #[derive(Clone)]
 struct UndoState {
@@ -152,7 +141,7 @@ fn setup(gfx: &mut Graphics) -> State {
         text_font: font,
         symbol_font, 
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
-        mode: GameMode::Ingame(GameState {
+        mode: GameMode::Ingame(ingame::GameState {
             logic_system: proof::natural_logic::get_system(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
