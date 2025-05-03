@@ -19,12 +19,24 @@ mod game_ui;
 mod background;
 mod animation;
 mod ingame;
+mod menus;
+mod misc;
 
 /// Current global state of the game.
 #[allow(clippy::large_enum_variant)]
 enum GameMode {
     Ingame(ingame::GameState),
-    Other,
+    Menu(menus::MenuState),
+    None,
+}
+
+
+enum VerticalAlign {
+    Top, Middle, Bottom
+}
+
+enum HorizontalAlign {
+    Top, Middle, Bottom
 }
 
 
@@ -44,6 +56,9 @@ struct State {
 struct Theme {
     ui_text: Color,
     ui_bg: Color,
+    ui_button: Color,
+    ui_button_focus: Color,
+    ui_button_flash: Color,
     bg_text: Color,
     bg: Color,
     seq_text: Color,
@@ -95,23 +110,12 @@ fn setup(gfx: &mut Graphics) -> State {
         .create_font(include_bytes!("../assets/fonts/JuliaMono.ttf"))
         .unwrap();
 
-    let test_proof = sequent_as_empty_proof(
-        Sequent {
-            before: vec![],
-            after: vec![
-                Formula::NotCompleted(FormulaField {
-                    id: 0,
-                    prev_id: 0,
-                    next_id: 0,
-                }),
-            ],
-        },
-        0.0
-    );
-
     let test_theme = Theme {
         ui_text: Color::from_hex(0xeeeeeeff),
         ui_bg: Color::from_hex(0x222222ff),
+        ui_button: Color::from_hex(0x222222ff),
+        ui_button_focus: Color::from_hex(0x333333ff),
+        ui_button_flash: Color::from_hex(0x555555ff),
         bg_text: Color::from_hex(0x151515ff),
         bg: Color::from_hex(0x080808ff),
         seq_text: Color::from_hex(0xeeeeeeff),
@@ -125,23 +129,11 @@ fn setup(gfx: &mut Graphics) -> State {
         text_font: font,
         symbol_font, 
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
-        mode: GameMode::Ingame(ingame::GameState {
-            logic_system: proof::natural_logic::get_system(),
-            undo_stack: Vec::new(),
-            redo_stack: Vec::new(),
-            state: ingame::UndoState {
-                proof: test_proof.clone(),
-                editing_formulas: true,
-                formulas_position: 0,
-                next_formula_index: 1,
-                fields_creation_time: HashMap::with_capacity(20),
-            },
-            sequent_position: ScreenSize::zero(),
-            sequent_scale: 1.0,
-            keys_visibility: true,
-            last_shake_time: f32::NEG_INFINITY,
-            initial_sequent: test_proof.root.clone()
+        mode: GameMode::Menu(menus::MenuState {
+            current_menu: menus::main_menu(),
+            focused_element: 0,
         }),
+        // mode: ingame::get_initial_state(proof::get_empty_sequent(), 0.0),
         bindings: action::get_default_bindings(),
         screen_ratio: 1.0,
         background_state: background::init_background_state(),
@@ -187,7 +179,10 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
         GameMode::Ingame(_) => {
             ingame::game_frame(state, app, gfx, &mut draw);
         },
-        _ => ()
+        GameMode::Menu(_) => {
+            menus::draw_menu(state, app, gfx, &mut draw);
+        },
+        GameMode::None => { }
     }
 
     gfx.render(&ui_output);

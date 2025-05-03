@@ -28,7 +28,6 @@ pub const MISC_KEYS_SCALE_SHIFT_X: f32 = 0.07;
 
 pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graphics, state: &State) {
     
-    #[allow(unreachable_patterns)] // To be removed when other game modes will be implemented
     let game_state = match &state.mode {
         GameMode::Ingame(s) => s,
         _ => unreachable!()

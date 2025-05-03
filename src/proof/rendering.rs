@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 
 use crate::animation;
+use crate::VerticalAlign;
 use crate::proof::*;
 use crate::coord::*;
 use notan::prelude::*;
@@ -49,11 +50,6 @@ pub struct RenderInfo<'a> {
     // Position of the currently focused element. Set by the draw_proof function
     pub focus_rect: ScreenRect,
     pub fields_creation_time: &'a mut HashMap<u32, f32>,
-}
-
-
-enum VerticalAlign {
-    Top, Middle, Bottom
 }
 
 

@@ -326,3 +326,17 @@ pub fn execute_on_first_operator_of_type<T>(formulas: &[Formula], op_type: Opera
 
     return otherwise;
 }
+
+/// A sequent with only a field on the right
+pub fn get_empty_sequent() -> Sequent {
+    return Sequent {
+        before: vec![],
+        after: vec![
+            Formula::NotCompleted(FormulaField {
+                id: 0,
+                prev_id: 0,
+                next_id: 0,
+            }),
+        ],
+    };
+}

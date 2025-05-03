@@ -32,6 +32,11 @@ pub enum Action {
     ToggleKeys,
 
     Exit,
+    Up,
+    Down,
+    Right,
+    Left,
+    Confirm,
 }
 
 pub fn get_default_bindings() -> Bindings {
@@ -103,6 +108,12 @@ pub fn get_default_bindings() -> Bindings {
     res.insert(Action::ToggleKeys, KeyCode::F1);
 
     res.insert(Action::Exit, KeyCode::Escape);
+
+    res.insert(Action::Up, KeyCode::Up);
+    res.insert(Action::Down, KeyCode::Down);
+    res.insert(Action::Right, KeyCode::Right);
+    res.insert(Action::Left, KeyCode::Left);
+    res.insert(Action::Confirm, KeyCode::Return);
 
     return res;
 }

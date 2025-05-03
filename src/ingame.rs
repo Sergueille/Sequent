@@ -50,17 +50,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
 
     if action::was_pressed(action::Action::Restart, &state.bindings, app) {
         record_undo_entry(game_state);
-        game_state.state.proof = proof::sequent_as_empty_proof(game_state.initial_sequent.clone(), app.timer.elapsed_f32());
-
-        let mut fields = proof::search_fields_by_id_in_proof(&mut game_state.state.proof, None);
-        if fields.len() == 0 {
-            game_state.state.editing_formulas = false;
-        }
-        else {
-            game_state.state.editing_formulas = true;
-            game_state.state.formulas_position = formula_as_field(fields[0]).id;
-            game_state.state.next_formula_index = fields.iter_mut().map(|f| { formula_as_field(f).id }).max().unwrap() + 1;
-        }
+        game_state.state = get_start_sequent_state(game_state.initial_sequent.clone(), app.timer.elapsed_f32());
     }
 
     let special_mode = action::is_down(action::Action::SpecialRuleMode, &state.bindings, app);
@@ -202,6 +192,9 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
         game_ui::render_ui(special_mode, &state.symbol_font, draw, gfx, state);
     }
 
+    if action::was_pressed(action::Action::Exit, &state.bindings, app) {
+        state.mode = menus::get_in_menu(menus::main_menu());
+    }
 }
 
 
@@ -315,4 +308,42 @@ fn adjust_proof_position(screen_ratio: f32, proof_width: f32, game_state: &mut G
     };
 
     game_state.sequent_scale += (target_size - game_state.sequent_scale) * CAMERA_MOVEMENT_SPEED_SCALE * app.timer.delta_f32();
+}
+
+pub fn get_initial_state(start_seq: Sequent, time: f32) -> GameMode {
+    return GameMode::Ingame(ingame::GameState {
+        logic_system: proof::natural_logic::get_system(),
+        undo_stack: Vec::new(),
+        redo_stack: Vec::new(),
+        state: get_start_sequent_state(start_seq.clone(), time),
+        sequent_position: ScreenSize::zero(),
+        sequent_scale: 1.0,
+        keys_visibility: true,
+        last_shake_time: f32::NEG_INFINITY,
+        initial_sequent: start_seq
+    });
+}
+
+fn get_start_sequent_state(s: Sequent, time: f32) -> UndoState {
+    let mut proof = sequent_as_empty_proof(s, time);
+    let mut fields = proof::search_fields_by_id_in_proof(&mut proof, None);
+
+    if fields.len() == 0 {
+        return UndoState {
+            editing_formulas: false,
+            formulas_position: 0,
+            next_formula_index: 0,
+            fields_creation_time: HashMap::with_capacity(20),
+            proof: proof.clone(),
+        };
+    }
+    else {
+        return UndoState {
+            editing_formulas: true,
+            formulas_position: formula_as_field(fields[0]).id,
+            next_formula_index: fields.iter_mut().map(|f| { formula_as_field(f).id }).max().unwrap() + 1,
+            fields_creation_time: HashMap::with_capacity(20),
+            proof: proof.clone(),
+        };
+    }
 }
