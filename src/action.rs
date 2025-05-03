@@ -27,6 +27,7 @@ pub enum Action {
 
     Undo,
     Redo,
+    Restart,
 
     ToggleKeys,
 
@@ -97,6 +98,7 @@ pub fn get_default_bindings() -> Bindings {
 
     res.insert(Action::Undo, KeyCode::W);
     res.insert(Action::Redo, KeyCode::X);
+    res.insert(Action::Restart, KeyCode::Back);
 
     res.insert(Action::ToggleKeys, KeyCode::F1);
 
@@ -132,6 +134,7 @@ pub fn is_down(action: Action, bindings: &HashMap<Action, KeyCode>, app: &App) -
 pub fn key_code_display(code: KeyCode) -> String {
     match code {
         KeyCode::Escape => String::from("Esc"),
+        KeyCode::Back => String::from("Backspace"),
         _ => format!("{:?}", code),
     }
 }

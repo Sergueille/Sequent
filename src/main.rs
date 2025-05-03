@@ -28,22 +28,6 @@ enum GameMode {
 }
 
 
-#[derive(Clone)]
-struct UndoState {
-    proof: Proof,
-    editing_formulas: bool,
-
-    /// ID of the current focused formula field
-    formulas_position: u32,
-
-    /// Next id that will be assigned to empty fields, to make sure they are unique. This means all fields in proof will have an id below this .
-    next_formula_index: u32,
-
-    /// Creation times of the fields in the sequent, indexed by their id
-    fields_creation_time: HashMap<u32, f32>,
-}
-
-
 #[derive(AppState)]
 struct State {
     text_font: Font,
@@ -145,8 +129,8 @@ fn setup(gfx: &mut Graphics) -> State {
             logic_system: proof::natural_logic::get_system(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
-            state: UndoState {
-                proof: test_proof,
+            state: ingame::UndoState {
+                proof: test_proof.clone(),
                 editing_formulas: true,
                 formulas_position: 0,
                 next_formula_index: 1,
@@ -155,7 +139,8 @@ fn setup(gfx: &mut Graphics) -> State {
             sequent_position: ScreenSize::zero(),
             sequent_scale: 1.0,
             keys_visibility: true,
-            last_shake_time: f32::NEG_INFINITY
+            last_shake_time: f32::NEG_INFINITY,
+            initial_sequent: test_proof.root.clone()
         }),
         bindings: action::get_default_bindings(),
         screen_ratio: 1.0,

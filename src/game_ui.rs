@@ -10,6 +10,7 @@ use notan::draw::*;
 pub const NB_LETTERS_DISPLAYED: u32 = 6;
 
 pub const ACTION_RECT_SIZE: f32 = 0.07;
+pub const ACTION_LARGE_RECT_WIDTH: f32 = 0.14;
 pub const ACTION_RECT_COLOR: u32 = 0x222222ff;
 pub const ACTION_RIGHT_MARGIN: f32 = 0.001;
 pub const ACTION_TEXT_SIZE: f32 = 30.0;
@@ -85,6 +86,7 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
         crate::action::Action::Exit,
         crate::action::Action::Undo,
         crate::action::Action::Redo,
+        crate::action::Action::Restart,
         crate::action::Action::ToggleKeys,
         crate::action::Action::SpecialRuleMode,
     ];
@@ -93,12 +95,13 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
         "Exit",
         "Undo",
         "Redo",
-        "Hide ui",
+        "Restart",
+        "Hide UI",
         "Alt. rules",
     ];
 
-    for i in 0..5 {
-        let total_size = MISC_KEYS_COLUMN_SIZE * 5.0;
+    for i in 0..left_actions.len() {
+        let total_size = MISC_KEYS_COLUMN_SIZE * (left_actions.len() as f32);
 
         draw_action_and_text(
             ScreenPosition { x: -total_size * 0.5 + MISC_KEYS_COLUMN_SIZE * i as f32 + MISC_KEYS_SCALE_SHIFT_X, y: MISC_KEYS_Y },
@@ -136,29 +139,41 @@ fn draw_action_and_text(pos: ScreenPosition, action: crate::action::Action, text
 pub fn draw_action(action: crate::action::Action, position: ScreenPosition, scale: f32, theme: Theme, bindings: &crate::action::Bindings, 
     font: &Font, draw: &mut Draw, gfx: &Graphics
 ) {
+    let rect;
+    let mut bl;
+    let mut center;
     
-    let rect = ScreenSize { x: ACTION_RECT_SIZE * scale, y: ACTION_RECT_SIZE * scale };
-    let bl = position.subtract(rect.scale(0.5));
-
     let action_text = match bindings.get(&action) {
         Some(key_code) => {
             &crate::action::key_code_display(*key_code)
         },
-        None => "No key",
+        None => "??",
     };
+
+    if action_text.chars().count() <= 3 {
+        rect = ScreenSize { x: ACTION_RECT_SIZE * scale, y: ACTION_RECT_SIZE * scale };
+        bl = position.subtract(rect.scale(0.5));
+        center = position;
+    }
+    else {
+        rect = ScreenSize { x: ACTION_LARGE_RECT_WIDTH * scale, y: ACTION_RECT_SIZE * scale };
+        bl = position.subtract(rect.scale(0.5));
+        center = position;
+
+        center.x -= (ACTION_LARGE_RECT_WIDTH - ACTION_RECT_SIZE) * 0.25;
+        bl.x -= (ACTION_LARGE_RECT_WIDTH - ACTION_RECT_SIZE) * 0.25;
+    }
 
     let text_size = ACTION_TEXT_SIZE * scale * match action_text.chars().count() {
         1 => 1.0,
         2 => 0.8,
-        3 => 0.5,
-        4 => 0.4,
-        _ => 0.3,
+        _ => 0.5,
     };
-
-    let screen_pos_pixel = position.to_pixel(gfx);
 
     draw.rect(bl.to_pixel(gfx).as_couple(), rect.to_pixel(gfx))
         .color(theme.ui_bg);
+
+    let screen_pos_pixel = center.to_pixel(gfx);
 
     let mut txt = draw.text(font, action_text);
     txt.position(screen_pos_pixel.x, screen_pos_pixel.y)

@@ -13,7 +13,24 @@ pub struct GameState {
     pub sequent_scale: f32,
     pub keys_visibility: bool,
     pub last_shake_time: f32,
+    pub initial_sequent: Sequent,
 }
+
+#[derive(Clone)]
+pub struct UndoState {
+    pub proof: Proof,
+    pub editing_formulas: bool,
+
+    /// ID of the current focused formula field
+    pub formulas_position: u32,
+
+    /// Next id that will be assigned to empty fields, to make sure they are unique. This means all fields in proof will have an id below this .
+    pub next_formula_index: u32,
+
+    /// Creation times of the fields in the sequent, indexed by their id
+    pub fields_creation_time: HashMap<u32, f32>,
+}
+
 
 pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut Draw) {
 
@@ -28,6 +45,21 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
     else if action::was_pressed(action::Action::Redo, &state.bindings, app) {
         if !redo(game_state) {
             screen_shake(game_state, app.timer.elapsed_f32());
+        }
+    }
+
+    if action::was_pressed(action::Action::Restart, &state.bindings, app) {
+        record_undo_entry(game_state);
+        game_state.state.proof = proof::sequent_as_empty_proof(game_state.initial_sequent.clone(), app.timer.elapsed_f32());
+
+        let mut fields = proof::search_fields_by_id_in_proof(&mut game_state.state.proof, None);
+        if fields.len() == 0 {
+            game_state.state.editing_formulas = false;
+        }
+        else {
+            game_state.state.editing_formulas = true;
+            game_state.state.formulas_position = formula_as_field(fields[0]).id;
+            game_state.state.next_formula_index = fields.iter_mut().map(|f| { formula_as_field(f).id }).max().unwrap() + 1;
         }
     }
 

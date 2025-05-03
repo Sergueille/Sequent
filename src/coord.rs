@@ -62,7 +62,7 @@ impl ScreenSize {
     }
 
     pub fn scale(self, factor: f32) -> ScreenSize {
-        return ScreenSize { x: self.x * factor, y: self.x * factor };
+        return ScreenSize { x: self.x * factor, y: self.y * factor };
     }
 
     pub fn zero() -> ScreenSize {
