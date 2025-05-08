@@ -34,7 +34,6 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
     };
 
     if game_state.state.editing_formulas {
-
         let total_size = KEYS_COLUMN_SIZE * game_state.logic_system.operators.len() as f32;
 
         for (i, op) in game_state.logic_system.operators.iter().enumerate() {
@@ -57,7 +56,7 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
             );
         }
     }
-    else {
+    else if !game_state.finished_proof {
         let total_size = KEYS_COLUMN_SIZE * ((game_state.logic_system.rules.len() + 1) / 2) as f32;
 
         for i in 0..game_state.logic_system.rules.len() {

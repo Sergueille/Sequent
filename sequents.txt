@@ -30,3 +30,4 @@ De Morgan, et 2         !A ou !B |- !(A et B)                   2               
 Contraposée             A -> B |- !B -> !A                      1               non
                         A -> B |- !A ou B                       2               oui
                         !A ou B |- A -> B                       2               non
+                        (A -> B) -> (B -> A) |- B -> A          2               non

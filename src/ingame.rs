@@ -14,6 +14,7 @@ pub struct GameState {
     pub keys_visibility: bool,
     pub last_shake_time: f32,
     pub initial_sequent: Sequent,
+    pub finished_proof: bool,
 }
 
 #[derive(Clone)]
@@ -35,6 +36,8 @@ pub struct UndoState {
 pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut Draw) {
 
     let GameMode::Ingame(game_state) = &mut state.mode else { return };
+
+    game_state.finished_proof = false;
 
     // Handle undo/redo
     if action::was_pressed(action::Action::Undo, &state.bindings, app) {
@@ -148,7 +151,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
                     } 
                 }
             },
-            None => (), // TODO: show proof is finished
+            None => game_state.finished_proof = true, // TODO: show proof is finished
         }
     }
 
@@ -253,8 +256,11 @@ fn get_shake_delta_position(game_state: &GameState, time: f32) -> ScreenSize {
 
 fn adjust_proof_position(screen_ratio: f32, proof_width: f32, game_state: &mut GameState, focus_rect: ScreenRect, app: &App) {
     // If larger than screen move to center focused element, otherwise center the sequent
-    let current_x_shift = if focus_rect == ScreenRect::nothing() {
+    let current_x_shift = if game_state.finished_proof  {
         game_state.sequent_position.x
+    }
+    else if focus_rect == ScreenRect::nothing() {
+        0.0
     }
     else if proof_width > (screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 {
         focus_rect.center().x
@@ -288,8 +294,11 @@ fn adjust_proof_position(screen_ratio: f32, proof_width: f32, game_state: &mut G
     };
     */
 
-    let current_y_shift = if focus_rect == ScreenRect::nothing() {
+    let current_y_shift = if game_state.finished_proof  {
         game_state.sequent_position.y
+    }
+    else if focus_rect == ScreenRect::nothing() {
+        0.0
     }
     else if -game_state.sequent_position.y + focus_rect.top_right.y > 1.0 - SEQUENT_SAFE_ZONE_TOP {
         focus_rect.top_right.y - 1.0 + SEQUENT_SAFE_ZONE_TOP
@@ -301,7 +310,7 @@ fn adjust_proof_position(screen_ratio: f32, proof_width: f32, game_state: &mut G
     game_state.sequent_position.x -= CAMERA_MOVEMENT_SPEED_X * current_x_shift * app.timer.delta_f32();
     game_state.sequent_position.y -= CAMERA_MOVEMENT_SPEED_Y * current_y_shift * app.timer.delta_f32();
 
-    let target_size = if focus_rect == ScreenRect::nothing() {
+    let target_size = if game_state.finished_proof {
         f32::min(1.0, (screen_ratio - SEQUENT_SAFE_ZONE_SIDES) * 2.0 / proof_width * game_state.sequent_scale)
     } else {
         1.0
@@ -320,7 +329,8 @@ pub fn get_initial_state(start_seq: Sequent, time: f32) -> GameMode {
         sequent_scale: 1.0,
         keys_visibility: true,
         last_shake_time: f32::NEG_INFINITY,
-        initial_sequent: start_seq
+        initial_sequent: start_seq,
+        finished_proof: false,
     });
 }
 

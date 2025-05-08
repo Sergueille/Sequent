@@ -9,10 +9,7 @@ SEQUENTS
 - générer des sequents aléatoirement
 
 APPARENCE
-- pouvoir changer la taille d'affichage du sequent (actuellement super chiant a faire)
 - centrer la vue sur le sequent actuel plutôt que sur le champ de texte actuel?
-- plus d'animations sur l'édition de sequents
-- meilleur alignement du texte des sequents
 - afficher alt rules conditionnellement
 - particules + shake?
 - arrière plan bug quand pas en 1080p 
