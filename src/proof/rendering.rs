@@ -41,7 +41,7 @@ pub struct RenderInfo<'a> {
     pub text_font: &'a Font,
     pub symbol_font: &'a Font,
     pub cached_sizes: &'a HashMap<char, f32>,
-    pub focused_formula_field: u32,
+    pub focused_formula_field: Option<u32>,
     pub editing_formulas: bool,
     pub logic_system: &'a LogicSystem,
     pub scale: f32,
@@ -89,7 +89,13 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
     tr_pos.x += total_width - bar_right_pos - bar_left_pos;
     tr_pos.y += BAR_HEIGHT * info.scale;
 
-    let bar_color = if p.last_focused_time == info.time { info.theme.seq_bar_focused } else { info.theme.seq_bar };
+    let bar_color = if p.is_rule_invalid {
+        info.theme.seq_invalid
+    } else if p.last_focused_time == info.time { 
+        info.theme.seq_bar_focused
+    } else { 
+        info.theme.seq_bar 
+    };
 
     let mut bl = bl_pos.to_pixel(info.gfx).as_couple();
     let mut size = tr_pos.difference_with(bl_pos);
@@ -102,6 +108,12 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
 
     let rule_scale = crate::animation::ease_out_exp_second(info.time - p.rule_set_time , APPEAR_TAU, APPEAR_RULE_OVERSHOOT);
 
+    let rule_color = if p.is_rule_invalid {
+        info.theme.seq_invalid
+    } else {
+        info.theme.seq_text
+    };
+
     // Draw rule name
     match p.rule_id {
         Some(id) => {
@@ -109,7 +121,7 @@ pub fn draw_proof(p: &Proof, bottom_left: ScreenPosition, info: &mut RenderInfo)
             let mut position = tr_pos;
             position.x += RULE_MARGIN;
 
-            draw_text_more_params(&text, position, info.symbol_font, RULE_TEXT_SCALE * rule_scale, VerticalAlign::Middle, info);
+            draw_text_more_params(&text, position, info.symbol_font, RULE_TEXT_SCALE * rule_scale, VerticalAlign::Middle, rule_color, info);
         },
         None => (),
     }
@@ -229,7 +241,7 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
             draw_text(&VARIABLE_LETTERS.chars().nth(*id as usize).unwrap().to_string(), actual_pos, info.text_font, info);
         },
         Formula::NotCompleted(field_info) => {
-            let color = if info.editing_formulas && field_info.id == info.focused_formula_field { 
+            let color = if info.editing_formulas && Some(field_info.id) == info.focused_formula_field { 
                 info.theme.seq_field_focused 
             } else { 
                 info.theme.seq_field
@@ -248,7 +260,7 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
             info.draw.rect(bl.to_pixel(info.gfx).as_couple(), size.to_pixel(info.gfx)).color(color);
 
             // Update focus position
-            if info.editing_formulas && field_info.id == info.focused_formula_field {
+            if info.editing_formulas && Some(field_info.id) == info.focused_formula_field {
                 let rect = ScreenRect {
                     bottom_left, top_right
                 };
@@ -395,11 +407,11 @@ fn needs_parentheses(parent_priority: f32, f: &Formula) -> bool {
 
 
 fn draw_text(text: &str, position: ScreenPosition, font: &Font, info: &mut RenderInfo) -> f32 {
-    draw_text_more_params(text, position, font, 1.0, VerticalAlign::Bottom, info)
+    draw_text_more_params(text, position, font, 1.0, VerticalAlign::Bottom, info.theme.seq_text, info)
 }
 
 
-fn draw_text_more_params(text: &str, position: ScreenPosition, font: &Font, scale: f32, vertical_align: VerticalAlign, info: &mut RenderInfo) -> f32 {
+fn draw_text_more_params(text: &str, position: ScreenPosition, font: &Font, scale: f32, vertical_align: VerticalAlign, color: Color, info: &mut RenderInfo) -> f32 {
     let align_fn = match vertical_align {
         VerticalAlign::Top => TextSection::v_align_top,
         VerticalAlign::Middle => TextSection::v_align_middle,
@@ -410,7 +422,7 @@ fn draw_text_more_params(text: &str, position: ScreenPosition, font: &Font, scal
         let mut builder = info.draw.text(font, text);
         
         builder.position(position.to_pixel(info.gfx).x, position.to_pixel(info.gfx).y)
-            .color(info.theme.seq_text)
+            .color(color)
             .h_align_left();
 
         set_text_size(&mut builder, TEXT_SCALE * scale * info.scale, info.gfx);

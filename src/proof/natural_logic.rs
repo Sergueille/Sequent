@@ -17,8 +17,8 @@ pub fn get_system() -> LogicSystem {
             Box::new(ImplI {}),
             Box::new(ImplE {}),
             Box::new(AndI {}),
-            Box::new(AndEL {}),
-            Box::new(OrIL {}),
+            Box::new(AndE {}),
+            Box::new(OrI {}),
             Box::new(OrE {}),
             Box::new(TopI {}),
             Box::new(BottomE {}),
@@ -31,8 +31,8 @@ pub fn get_system() -> LogicSystem {
             None,
             None,
             None,
-            Some(Box::new(AndER {})),
-            Some(Box::new(OrIR {})),
+            None,
+            None,
             None,
             None,
             None,
@@ -113,6 +113,87 @@ impl Rule for ImplE {
     }
 }
 
+pub struct AndE { }
+
+impl Rule for AndE {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        if root.after.len() == 0 {
+            return (None, 0);
+        }
+        
+        let mut new_seq = root.clone();
+
+        new_seq.after[0] = Formula::Operator(Operator {
+            operator_type: OperatorType::And,
+            arg1: Some(Box::new(Formula::NotCompleted(FormulaField {
+                id: 0,
+                next_id: 1,
+                prev_id: 1,
+            }))),
+            arg2: Some(Box::new(Formula::NotCompleted(FormulaField {
+                id: 1,
+                next_id: 0,
+                prev_id: 0,
+            }))),
+        });
+
+        return (Some(vec![
+            new_seq, 
+        ]), 2);
+    }
+
+    fn check_validity(&self, proof: &Proof) -> bool {
+        if proof.branches.len() != 1 { return false; }
+
+        let Formula::Operator(op) = &proof.branches[0].root.after[0] else { return false; };
+
+        if op.operator_type != OperatorType::And { return false; }
+
+        return proof.root.after[0] == *op.arg1.as_ref().unwrap().as_ref()
+            || proof.root.after[0] == *op.arg2.as_ref().unwrap().as_ref();
+    }
+
+    fn display_text(&self) -> &'static str {
+        "∧e"
+    }
+}
+
+
+pub struct OrI { }
+
+impl Rule for OrI {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Or, &|i, _, _| {
+            let mut s = root.clone();
+
+            s.after.remove(i);
+            s.after.insert(i, Formula::NotCompleted(FormulaField {
+                id: 0,
+                next_id: 0,
+                prev_id: 0,
+            }));
+            
+            return (Some(vec![s]), 1);
+        }, (None, 0));
+    }
+
+    fn check_validity(&self, proof: &Proof) -> bool {
+        if proof.branches.len() != 1 { return false; }
+
+        let Formula::Operator(op) = &proof.root.after[0] else { unreachable!(); };
+
+        if op.operator_type != OperatorType::Or { unreachable!(); }
+
+        return *op.arg1.as_ref().unwrap().as_ref() == proof.branches[0].root.after[0]
+            || *op.arg2.as_ref().unwrap().as_ref() == proof.branches[0].root.after[0];
+    }
+
+    fn display_text(&self) -> &'static str {
+        "∨i"
+    }
+}
+
+/* Structs for the rules with left and right version (OrI, AndE)
 
 pub struct AndEL { }
 
@@ -140,7 +221,7 @@ impl Rule for AndEL {
     }
 
     fn check_validity(&self, _proof: &Proof) -> bool {
-        true
+        false
     }
 
     fn display_text(&self) -> &'static str {
@@ -182,6 +263,54 @@ impl Rule for AndER {
     }
 }
 
+
+pub struct OrIL { }
+
+impl Rule for OrIL {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Or, &|i, arg1, _| {
+            let mut s = root.clone();
+
+            s.after.remove(i);
+            s.after.insert(i, arg1.as_ref().unwrap().as_ref().clone());
+            
+            return (Some(vec![s]), 0);
+        }, (None, 0));
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "∨il"
+    }
+}
+
+pub struct OrIR { }
+
+impl Rule for OrIR {
+    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
+        return execute_on_first_operator_of_type(&root.after, OperatorType::Or, &|i, _, arg2| {
+            let mut s = root.clone();
+
+            s.after.remove(i);
+            s.after.insert(i, arg2.as_ref().unwrap().as_ref().clone());
+            
+            return (Some(vec![s]), 0);
+        }, (None, 0));
+    }
+
+    fn check_validity(&self, _proof: &Proof) -> bool {
+        true
+    }
+
+    fn display_text(&self) -> &'static str {
+        "∨ir"
+    }
+}
+
+*/
 
 
 pub struct AndI {
@@ -360,52 +489,6 @@ impl Rule for OrE {
     }
 }
 
-
-pub struct OrIL { }
-
-impl Rule for OrIL {
-    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
-        return execute_on_first_operator_of_type(&root.after, OperatorType::Or, &|i, arg1, _| {
-            let mut s = root.clone();
-
-            s.after.remove(i);
-            s.after.insert(i, arg1.as_ref().unwrap().as_ref().clone());
-            
-            return (Some(vec![s]), 0);
-        }, (None, 0));
-    }
-
-    fn check_validity(&self, _proof: &Proof) -> bool {
-        true
-    }
-
-    fn display_text(&self) -> &'static str {
-        "∨il"
-    }
-}
-
-pub struct OrIR { }
-
-impl Rule for OrIR {
-    fn create_branches(&self, root: &Sequent) -> (Option<Vec<Sequent>>, u32) {
-        return execute_on_first_operator_of_type(&root.after, OperatorType::Or, &|i, _, arg2| {
-            let mut s = root.clone();
-
-            s.after.remove(i);
-            s.after.insert(i, arg2.as_ref().unwrap().as_ref().clone());
-            
-            return (Some(vec![s]), 0);
-        }, (None, 0));
-    }
-
-    fn check_validity(&self, _proof: &Proof) -> bool {
-        true
-    }
-
-    fn display_text(&self) -> &'static str {
-        "∨ir"
-    }
-}
 
 pub struct TopI { }
 

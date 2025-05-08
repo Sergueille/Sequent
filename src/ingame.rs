@@ -23,15 +23,19 @@ pub struct UndoState {
     pub editing_formulas: bool,
 
     /// ID of the current focused formula field
-    pub formulas_position: u32,
+    pub formulas_position: Option<u32>,
 
-    /// Next id that will be assigned to empty fields, to make sure they are unique. This means all fields in proof will have an id below this .
+    /// Next id that will be assigned to empty fields, to make sure they are unique. This means all fields in proof will have an id below this.
     pub next_formula_index: u32,
+
+    /// Next id that will be assigned to proof nodes, to make sure they are unique. This means all nodes in proof will have an id below this.
+    pub next_proof_index: u32,
 
     /// Creation times of the fields in the sequent, indexed by their id
     pub fields_creation_time: HashMap<u32, f32>,
+    
+    pub node_to_check_after_fields_completed: Option<u32>,
 }
-
 
 pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut Draw) {
 
@@ -59,45 +63,74 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
     let special_mode = action::is_down(action::Action::SpecialRuleMode, &state.bindings, app);
 
     if game_state.state.editing_formulas {
-        // Check for operator insertion
-        for (i, op) in game_state.logic_system.operators.clone().into_iter().enumerate() {
-            if action::was_pressed(action::Action::InsertOperator(i as u32), &state.bindings, app) {
-                
-                record_undo_entry(game_state);
-                match proof::place_uncompleted_operator(op, game_state.state.formulas_position, &mut game_state.state.proof, &mut game_state.state.next_formula_index) {
-                    Some(new_field) => game_state.state.formulas_position = new_field,
-                    None => game_state.state.editing_formulas = false,
+        match game_state.state.formulas_position {
+            Some(position) => {
+                // Check for operator insertion
+                for (i, op) in game_state.logic_system.operators.clone().into_iter().enumerate() {
+                    if action::was_pressed(action::Action::InsertOperator(i as u32), &state.bindings, app) {
+                        
+                        record_undo_entry(game_state);
+                        match proof::place_uncompleted_operator(op, position, &mut game_state.state.proof, &mut game_state.state.next_formula_index) {
+                            Some(new_field) => game_state.state.formulas_position = Some(new_field),
+                            None => game_state.state.editing_formulas = false,
+                        }
+                        
+                        break;
+                    } 
                 }
-                
-                break;
-            } 
-        }
 
-        // Check for variable insertion
-        for i in 0..MAX_VARIABLE_COUNT {
-            if action::was_pressed(action::Action::InsertVariable(i), &state.bindings, app) {
-                
-                record_undo_entry(game_state);
-                match proof::place_variable(i, game_state.state.formulas_position, &mut game_state.state.proof) {
-                    Some(new_field) => game_state.state.formulas_position = new_field,
-                    None => game_state.state.editing_formulas = false,
+                // Check for variable insertion
+                for i in 0..MAX_VARIABLE_COUNT {
+                    if action::was_pressed(action::Action::InsertVariable(i), &state.bindings, app) {
+                        
+                        record_undo_entry(game_state);
+                        match proof::place_variable(i, position, &mut game_state.state.proof) {
+                            Some(new_field) => game_state.state.formulas_position = Some(new_field),
+                            None => {
+                                // TEST
+                                // Check that the fields entered by the user are correct
+                                match &mut game_state.state.node_to_check_after_fields_completed {
+                                    Some(proof_id) => {
+                                        let proof = get_proof_node_by_id(&mut game_state.state.proof, *proof_id).unwrap();
+                                        let ok = game_state.logic_system.rules[proof.rule_id.unwrap() as usize].check_validity(proof);
+
+                                        if ok {
+                                            game_state.state.node_to_check_after_fields_completed = None;
+                                            game_state.state.editing_formulas = false; // Correct -> exit formula mode
+                                        }
+                                        else {
+                                            // Incorrect
+                                            game_state.state.formulas_position = None;
+                                            proof.is_rule_invalid = true;
+                                            screen_shake(game_state, app.timer.elapsed_f32());
+                                        }
+                                    },
+                                    None => game_state.state.editing_formulas = false, // Nothing to check -> exit formula mode
+                                }
+                            },
+                        }
+                        
+                        break;     
+                    } 
                 }
-                
-                break;     
-            } 
-        }
 
-        // Previous and next fields
-        if action::was_pressed(action::Action::NextField, &state.bindings, app) {
-            game_state.state.formulas_position = proof::formula_as_field(
-                proof::search_fields_by_id_in_proof(&mut game_state.state.proof, Some(game_state.state.formulas_position))[0]
-            ).next_id;
+                // Previous and next fields
+                if action::was_pressed(action::Action::NextField, &state.bindings, app) {
+                    game_state.state.formulas_position = Some(proof::formula_as_field(
+                        proof::search_fields_by_id_in_proof(&mut game_state.state.proof, Some(position))[0]
+                    ).next_id);
+                }
+                if action::was_pressed(action::Action::PreviousField, &state.bindings, app) {
+                    game_state.state.formulas_position = Some(proof::formula_as_field(
+                        proof::search_fields_by_id_in_proof(&mut game_state.state.proof, Some(position))[0]
+                    ).prev_id);
+                }
+            },
+            None => {
+                
+            },
         }
-        if action::was_pressed(action::Action::PreviousField, &state.bindings, app) {
-            game_state.state.formulas_position = proof::formula_as_field(
-                proof::search_fields_by_id_in_proof(&mut game_state.state.proof, Some(game_state.state.formulas_position))[0]
-            ).prev_id;
-        }
+        
     }
     else { // Not editing formulas
 
@@ -127,11 +160,13 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
                         match branches {
                             Some(new_branches) => {
                                 current_proof.branches = new_branches.into_iter().map(|s|
-                                    proof::sequent_as_empty_proof(s, app.timer.elapsed_f32())
+                                    proof::sequent_as_empty_proof(s, app.timer.elapsed_f32(), &mut game_state.state.next_proof_index)
                                 ).collect();
 
                                 current_proof.rule_id = Some(i as u32);
                                 current_proof.rule_set_time = app.timer.elapsed_f32();
+
+                                game_state.state.node_to_check_after_fields_completed = Some(current_proof.id);
 
                                 add_undo_entry(undo_entry, game_state);
                             },
@@ -142,7 +177,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
 
                         if field_count > 0 {
                             game_state.state.next_formula_index = field_count;
-                            game_state.state.formulas_position = 0;
+                            game_state.state.formulas_position = Some(0);
 
                             game_state.state.editing_formulas = true;
                         }
@@ -335,25 +370,30 @@ pub fn get_initial_state(start_seq: Sequent, time: f32) -> GameMode {
 }
 
 fn get_start_sequent_state(s: Sequent, time: f32) -> UndoState {
-    let mut proof = sequent_as_empty_proof(s, time);
+    let mut next_proof_id = 0;
+    let mut proof = sequent_as_empty_proof(s, time, &mut next_proof_id);
     let mut fields = proof::search_fields_by_id_in_proof(&mut proof, None);
 
     if fields.len() == 0 {
         return UndoState {
             editing_formulas: false,
-            formulas_position: 0,
+            formulas_position: None,
             next_formula_index: 0,
             fields_creation_time: HashMap::with_capacity(20),
             proof: proof.clone(),
+            node_to_check_after_fields_completed: None,
+            next_proof_index: next_proof_id,
         };
     }
     else {
         return UndoState {
             editing_formulas: true,
-            formulas_position: formula_as_field(fields[0]).id,
+            formulas_position: Some(formula_as_field(fields[0]).id),
             next_formula_index: fields.iter_mut().map(|f| { formula_as_field(f).id }).max().unwrap() + 1,
             fields_creation_time: HashMap::with_capacity(20),
             proof: proof.clone(),
+            node_to_check_after_fields_completed: None,
+            next_proof_index: next_proof_id,
         };
     }
 }

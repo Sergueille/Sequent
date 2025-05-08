@@ -10,7 +10,7 @@ SEQUENTS
 
 APPARENCE
 - centrer la vue sur le sequent actuel plutôt que sur le champ de texte actuel?
-- afficher alt rules conditionnellement
+- enlever les alt rules?
 - particules + shake?
 - arrière plan bug quand pas en 1080p 
 

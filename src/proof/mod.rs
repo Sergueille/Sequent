@@ -23,6 +23,7 @@ pub trait Rule {
 /// A proof tree.
 #[derive(Clone)]
 pub struct Proof {
+    pub id: u32,
     pub root: Sequent,
     pub branches: Vec<Proof>,
     pub rule_id: Option<u32>,
@@ -30,6 +31,7 @@ pub struct Proof {
     pub last_focused_time: f32,
     pub creation_time: f32,
     pub rule_set_time: f32,
+    pub is_rule_invalid: bool,
 }
 
 /// A sequent!
@@ -237,6 +239,23 @@ pub fn formula_as_field(f: &mut Formula) -> &mut FormulaField {
 }
 
 
+pub fn get_proof_node_by_id(p: &mut Proof, index: u32) -> Option<&mut Proof> {
+    if p.id == index {
+        return Some(p);
+    }
+    else {
+        for b in &mut p.branches {
+            match get_proof_node_by_id(b, index) {
+                Some(res) => return Some(res),
+                None => { },
+            }
+        }
+
+        return None;
+    }
+} 
+
+
 /// If index is None, returns all fields
 pub fn search_fields_by_id_in_proof(p: &mut Proof, index: Option<u32>) -> Vec<&mut Formula> {
     let mut res = Vec::new();
@@ -301,14 +320,18 @@ pub fn get_first_unfinished_proof(p: &mut Proof) -> Option<&mut Proof> {
     }
 }
 
-pub fn sequent_as_empty_proof(s: Sequent, time: f32) -> Proof {
+pub fn sequent_as_empty_proof(s: Sequent, time: f32, next_id: &mut u32) -> Proof {
+    *next_id += 1;
+
     return Proof {
+        id: *next_id - 1,
         root: s,
         branches: vec![],
         rule_id: None,
         last_focused_time: f32::NEG_INFINITY,
         creation_time: time,
         rule_set_time: f32::NEG_INFINITY,
+        is_rule_invalid: false,
     };
 }
 

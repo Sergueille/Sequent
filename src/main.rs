@@ -64,6 +64,7 @@ struct Theme {
     seq_text: Color,
     seq_bar: Color,
     seq_bar_focused: Color,
+    seq_invalid: Color,
     seq_field: Color,
     seq_field_focused: Color,
 } 
@@ -121,6 +122,7 @@ fn setup(gfx: &mut Graphics) -> State {
         seq_text: Color::from_hex(0xeeeeeeff),
         seq_bar: Color::from_hex(0xeeeeeeff),
         seq_bar_focused: Color::from_hex(0xffccaaff),
+        seq_invalid: Color::from_hex(0xff5555ff),
         seq_field: Color::from_hex(0x30308050),
         seq_field_focused: Color::from_hex(0xffffdd50),
     };
