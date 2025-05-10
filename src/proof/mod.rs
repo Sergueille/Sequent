@@ -50,14 +50,14 @@ pub enum OperatorType {
 
 /// arg1 and arg2 are None if the arity is 0 or 1.
 /// Non-variable constants (top, bottom) are operators with arity 0.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Operator {
     pub operator_type: OperatorType,
     pub arg1: Option<Box<Formula>>,
     pub arg2: Option<Box<Formula>>
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Formula {
     Operator(Operator),
     Variable(Variable),
@@ -67,7 +67,7 @@ pub enum Formula {
     NotCompleted(FormulaField),
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct FormulaField {
     pub id: u32,
     pub next_id: u32,

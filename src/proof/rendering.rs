@@ -242,7 +242,7 @@ pub fn draw_formula(f: &Formula, bottom_left: ScreenPosition, squish_x: f32, inf
         },
         Formula::NotCompleted(field_info) => {
             let color = if info.editing_formulas && Some(field_info.id) == info.focused_formula_field { 
-                info.theme.seq_field_focused 
+                info.theme.seq_field_focused
             } else { 
                 info.theme.seq_field
             };

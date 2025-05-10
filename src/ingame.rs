@@ -72,7 +72,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
                         record_undo_entry(game_state);
                         match proof::place_uncompleted_operator(op, position, &mut game_state.state.proof, &mut game_state.state.next_formula_index) {
                             Some(new_field) => game_state.state.formulas_position = Some(new_field),
-                            None => game_state.state.editing_formulas = false,
+                            None => exit_formula_mode(game_state, app.timer.elapsed_f32()),
                         }
                         
                         break;
@@ -87,26 +87,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
                         match proof::place_variable(i, position, &mut game_state.state.proof) {
                             Some(new_field) => game_state.state.formulas_position = Some(new_field),
                             None => {
-                                // TEST
-                                // Check that the fields entered by the user are correct
-                                match &mut game_state.state.node_to_check_after_fields_completed {
-                                    Some(proof_id) => {
-                                        let proof = get_proof_node_by_id(&mut game_state.state.proof, *proof_id).unwrap();
-                                        let ok = game_state.logic_system.rules[proof.rule_id.unwrap() as usize].check_validity(proof);
-
-                                        if ok {
-                                            game_state.state.node_to_check_after_fields_completed = None;
-                                            game_state.state.editing_formulas = false; // Correct -> exit formula mode
-                                        }
-                                        else {
-                                            // Incorrect
-                                            game_state.state.formulas_position = None;
-                                            proof.is_rule_invalid = true;
-                                            screen_shake(game_state, app.timer.elapsed_f32());
-                                        }
-                                    },
-                                    None => game_state.state.editing_formulas = false, // Nothing to check -> exit formula mode
-                                }
+                                exit_formula_mode(game_state, app.timer.elapsed_f32());
                             },
                         }
                         
@@ -216,12 +197,14 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
     };
 
     base_position = base_position.add(shake_delta);
+    base_position = base_position.add(game_state.sequent_position);
 
-    draw_proof(&game_state.state.proof, base_position.add(game_state.sequent_position), &mut render_info);
+    draw_proof(&game_state.state.proof, base_position, &mut render_info);
 
     let focus_rect = render_info.focus_rect;
     adjust_proof_position(state.screen_ratio, proof_width, game_state, focus_rect, app);
 
+    // Handle hide UI key
     if action::was_pressed(action::Action::ToggleKeys, &state.bindings, app) {
         game_state.keys_visibility = !game_state.keys_visibility;
     }
@@ -230,6 +213,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
         game_ui::render_ui(special_mode, &state.symbol_font, draw, gfx, state);
     }
 
+    // Handle exit key 
     if action::was_pressed(action::Action::Exit, &state.bindings, app) {
         state.mode = menus::get_in_menu(menus::main_menu());
     }
@@ -249,8 +233,8 @@ fn add_undo_entry(entry: UndoState, gs: &mut GameState) {
 fn undo(gs: &mut GameState) -> bool {
     match gs.undo_stack.pop() {
         Some(mut last_state) => {
-            std::mem::swap(&mut gs.state, &mut last_state);
-            gs.redo_stack.push(last_state); 
+            std::mem::swap(&mut gs.state, &mut last_state);            
+            gs.redo_stack.push(last_state);
             return true;
         },
         None => return false
@@ -395,5 +379,28 @@ fn get_start_sequent_state(s: Sequent, time: f32) -> UndoState {
             node_to_check_after_fields_completed: None,
             next_proof_index: next_proof_id,
         };
+    }
+}
+
+
+/// Exists formula mode, and check that the fields are correct for the new rule. 
+fn exit_formula_mode(game_state: &mut GameState, time: f32) {
+    match &mut game_state.state.node_to_check_after_fields_completed {
+        Some(proof_id) => {
+            let proof = get_proof_node_by_id(&mut game_state.state.proof, *proof_id).unwrap();
+            let ok = game_state.logic_system.rules[proof.rule_id.unwrap() as usize].check_validity(proof);
+
+            if ok {
+                game_state.state.node_to_check_after_fields_completed = None;
+                game_state.state.editing_formulas = false; // Correct -> exit formula mode
+            }
+            else {
+                // Incorrect
+                game_state.state.formulas_position = None;
+                proof.is_rule_invalid = true;
+                screen_shake(game_state, time);
+            }
+        },
+        None => game_state.state.editing_formulas = false, // Nothing to check -> exit formula mode
     }
 }
