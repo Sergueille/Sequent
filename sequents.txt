@@ -7,8 +7,6 @@ Sequents intéressants
 - 2: nécessite une petite astuce, ou un usage d'une règle avec une formule non triviale à une variable a saisir
 - 3: pareil, mais plus long (ou nécessite de reprouver un autre résultat comm de Morgan)
 
-Les valeurs "difficulté" et "RAA" dépendent de la preuve que j'ai trouvée, elle n'est pas forcément optimale donc peut être que la vraie difficulté est plus basse.
-
                                                                 difficulté      RAA
 Thèse non non A         A |- !!A                                1               non
 L'autre sens            !!A |- A                                1               oui
@@ -18,7 +16,7 @@ Distribution du et 1    A et (B ou C) |- (A et B) ou (A et C)   2               
 Distribution du et 2    (A et B) ou (A et C) |- A et (B ou C)   2               non
 Curryfication           (A et B) -> C |- A -> (B -> C)          1               non
 Décurryfication         A -> (B -> C) |- (A et B) -> C          2               non
-Tiers état              |- A ou (!A)                            3               oui     peut être fait en réutilisant De Morgan (mais avec 2 RAA)
+Tiers état              |- A ou (!A)                            3               oui     peut être fait en réutilisant De Morgan (2 RAA), mais possible avec un seul RAA
 De Morgan, ou 1         !(A ou B) |- !A et !B                   2               non
 De Morgan, ou 2         !A et !B |- !(A ou B)                   2               non
 De Morgan, et 1         !(A et B) |- !A ou !B                   3               oui
@@ -32,4 +30,6 @@ Contraposée             A -> B |- !B -> !A                      1              
                         !A ou B |- A -> B                       2               non
                         (A -> B) -> (B -> A) |- B -> A          2               non
 Associativité du et     A et (B et C) -> (A et B) et C          1               non   
-Associativité du ou     A ou (B ou C) -> (A ou B) ou C          1               non   
+Associativité du ou     A ou (B ou C) -> (A ou B) ou C          1+              non   
+Non / implique bottom   !A -> (A -> bottom)                     0               non
+Non / implique bottom   (A -> bottom) -> !A                     0               non

@@ -2,7 +2,8 @@
 // Ingame UI rendering
 
 use crate::coord::*;
-use crate::{State, Theme, GameMode};
+use crate::{State, GameMode};
+use crate::settings::Theme;
 use notan::prelude::*;
 use notan::draw::*;
 
@@ -42,7 +43,7 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
                 crate::action::Action::InsertOperator(i as u32),
                 crate::proof::get_operator_symbol(*op),
                 1.0,
-                state.theme, &state.bindings, symbol_font, draw, gfx
+                *state.settings.theme(), state.settings.bindings(), symbol_font, draw, gfx
             );
         }
 
@@ -52,7 +53,7 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
                 crate::action::Action::InsertVariable(i),
                 &crate::proof::rendering::VARIABLE_LETTERS.chars().nth(i as usize).unwrap().to_string(),
                 1.0,
-                state.theme, &state.bindings, symbol_font, draw, gfx
+                *state.settings.theme(), state.settings.bindings(), symbol_font, draw, gfx
             );
         }
     }
@@ -75,7 +76,7 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
                 crate::action::Action::InsertRule(i as u32),
                 rule.display_text(),
                 1.0,
-                state.theme, &state.bindings, symbol_font, draw, gfx
+                *state.settings.theme(), state.settings.bindings(), symbol_font, draw, gfx
             );
         }
     }
@@ -106,7 +107,7 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
             left_actions[i],
             left_text[i],
             MISC_KEYS_SCALE,
-            state.theme, &state.bindings, symbol_font, draw, gfx
+            *state.settings.theme(), state.settings.bindings(), symbol_font, draw, gfx
         );
     }
 

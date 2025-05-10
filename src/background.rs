@@ -78,7 +78,7 @@ pub fn draw_background(time: f32, draw: &mut Draw, gfx: &Graphics, state: &mut S
         let mut text = draw.text(&state.symbol_font, &state.background_state.strings[i as usize]);
         text.position(x, y) //pos.x as f32, pos.y as f32)
             .rotate_from((x, y), -ANGLE)
-            .color(state.theme.bg_text)
+            .color(state.settings.theme().bg_text)
             .h_align_left()
             .v_align_bottom();
 

@@ -3,10 +3,18 @@ name = "sequent"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "sequent_macros"
+path = "src/macros.rs"
+proc-macro = true
 
 [dependencies]
-notan = { version = "0.12.1", features = ["text", "glyph", "egui", "extra"] }
+notan = { version = "0.12.1", features = ["text", "glyph", "egui", "extra", "serde"] }
+proc_macros = "0.1.0"
+quote = "1.0.40"
+ron = "0.10.1"
+serde = "1.0.219"
+syn = "2.0.101"
 
 [profile.dev]
 opt-level = 2

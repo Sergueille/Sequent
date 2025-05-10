@@ -37,7 +37,7 @@ pub struct DrawInfo<'a> {
     pub draw: &'a mut Draw,
     pub gfx: &'a mut Graphics,
     pub app: &'a mut App,
-    pub theme: crate::Theme,
+    pub theme: crate::settings::Theme,
     pub text_font: &'a crate::Font,
     pub bindings: &'a crate::action::Bindings,
 }
@@ -173,9 +173,9 @@ pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mu
         screen_ratio: state.screen_ratio,
         draw,
         gfx,
-        theme: state.theme,
+        theme: *state.settings.theme(),
         text_font: &state.text_font,
-        bindings: &state.bindings,
+        bindings: state.settings.bindings(),
     };
 
     let mut position = ScreenPosition { 
@@ -201,10 +201,10 @@ pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mu
     }
 
     // Change focused element
-    if action::was_pressed(action::Action::Down, &state.bindings, info.app) {
+    if action::was_pressed(action::Action::Down, state.settings.bindings(), info.app) {
         menu_state.focused_element += 1;
     }
-    else if action::was_pressed(action::Action::Up, &state.bindings, info.app) {
+    else if action::was_pressed(action::Action::Up, state.settings.bindings(), info.app) {
         menu_state.focused_element += nb_focusable - 1;
     }
 
@@ -256,19 +256,27 @@ pub fn main_menu() -> Menu {
     return Menu { 
         elements: vec![
             button("Free editing", MenuEffect::ChangeGameMode(start_free_editing)),
-            button("Test menu", MenuEffect::ChangeMenu(test_menu)),
+            button("Settings", MenuEffect::ChangeMenu(settings)),
             button("Quit", MenuEffect::ChangeMenu(quit_confirmation)),
         ], 
     };
 }
 
-pub fn test_menu() -> Menu {
+pub fn settings() -> Menu {
     return Menu { 
         elements: vec![
-            label("This is a test menu"),
-            button("Useless button", MenuEffect::Nothing),
-            button("Useless button", MenuEffect::Nothing),
+            label("Settings"),
+            button("Keyboard", MenuEffect::ChangeMenu(keyboard)),
             button("Back", MenuEffect::ChangeMenu(main_menu)),
+        ], 
+    };
+}
+
+pub fn keyboard() -> Menu {
+    return Menu { 
+        elements: vec![
+            label("Keyboard configuration: TODO :)"), // TODO
+            button("Back", MenuEffect::ChangeMenu(settings)),
         ], 
     };
 }

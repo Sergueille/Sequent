@@ -20,6 +20,7 @@ mod background;
 mod animation;
 mod ingame;
 mod menus;
+mod settings;
 mod misc;
 
 /// Current global state of the game.
@@ -46,28 +47,10 @@ struct State {
     symbol_font: Font,
     cached_sizes: HashMap<char, f32>,
     mode: GameMode,
-    bindings: HashMap<action::Action, KeyCode>,
     screen_ratio: f32,
-    theme: Theme,
     background_state: background::BackgroundState,
+    settings: settings::Settings,
 }
-
-#[derive(Clone, Copy)]
-struct Theme {
-    ui_text: Color,
-    ui_bg: Color,
-    ui_button: Color,
-    ui_button_focus: Color,
-    ui_button_flash: Color,
-    bg_text: Color,
-    bg: Color,
-    seq_text: Color,
-    seq_bar: Color,
-    seq_bar_focused: Color,
-    seq_invalid: Color,
-    seq_field: Color,
-    seq_field_focused: Color,
-} 
 
 
 /// Part of the screen, next to left and right borders, where focused element shouldn't be (screen space) 
@@ -111,20 +94,11 @@ fn setup(gfx: &mut Graphics) -> State {
         .create_font(include_bytes!("../assets/fonts/JuliaMono.ttf"))
         .unwrap();
 
-    let test_theme = Theme {
-        ui_text: Color::from_hex(0xeeeeeeff),
-        ui_bg: Color::from_hex(0x222222ff),
-        ui_button: Color::from_hex(0x222222ff),
-        ui_button_focus: Color::from_hex(0x333333ff),
-        ui_button_flash: Color::from_hex(0x555555ff),
-        bg_text: Color::from_hex(0x151515ff),
-        bg: Color::from_hex(0x080808ff),
-        seq_text: Color::from_hex(0xeeeeeeff),
-        seq_bar: Color::from_hex(0xeeeeeeff),
-        seq_bar_focused: Color::from_hex(0xffccaaff),
-        seq_invalid: Color::from_hex(0xff5555ff),
-        seq_field: Color::from_hex(0x30308050),
-        seq_field_focused: Color::from_hex(0xffffdd50),
+    let settings = match settings::load_settings() {
+        Ok(s) => s,
+        Err(e) => {
+            panic!("{}", e.message);
+        },
     };
 
     return State {
@@ -136,10 +110,9 @@ fn setup(gfx: &mut Graphics) -> State {
             focused_element: 0,
         }),
         // mode: ingame::get_initial_state(proof::get_empty_sequent(), 0.0),
-        bindings: action::get_default_bindings(),
         screen_ratio: 1.0,
         background_state: background::init_background_state(),
-        theme: test_theme,
+        settings,
     };
 }
 
@@ -170,7 +143,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
         });
     });
     
-    ui_output.clear_color(state.theme.bg);
+    ui_output.clear_color(state.settings.theme().bg);
 
     let (w, h) = gfx.size();
     state.screen_ratio = w as f32 / h as f32;

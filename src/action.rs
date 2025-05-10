@@ -11,7 +11,7 @@ static KEYCODES: [KeyCode; 1] = [
     KeyCode::Escape
 ];
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Deserialize, serde::Serialize)]
 pub enum Action {
     NoAc,
 

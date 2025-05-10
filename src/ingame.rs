@@ -11,7 +11,6 @@ pub struct GameState {
     pub redo_stack: Vec<UndoState>,
     pub sequent_position: ScreenSize,
     pub sequent_scale: f32,
-    pub keys_visibility: bool,
     pub last_shake_time: f32,
     pub initial_sequent: Sequent,
     pub finished_proof: bool,
@@ -44,30 +43,30 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
     game_state.finished_proof = false;
 
     // Handle undo/redo
-    if action::was_pressed(action::Action::Undo, &state.bindings, app) {
+    if action::was_pressed(action::Action::Undo, state.settings.bindings(), app) {
         if !undo(game_state) {
             screen_shake(game_state, app.timer.elapsed_f32());
         }
     }
-    else if action::was_pressed(action::Action::Redo, &state.bindings, app) {
+    else if action::was_pressed(action::Action::Redo, state.settings.bindings(), app) {
         if !redo(game_state) {
             screen_shake(game_state, app.timer.elapsed_f32());
         }
     }
 
-    if action::was_pressed(action::Action::Restart, &state.bindings, app) {
+    if action::was_pressed(action::Action::Restart, state.settings.bindings(), app) {
         record_undo_entry(game_state);
         game_state.state = get_start_sequent_state(game_state.initial_sequent.clone(), app.timer.elapsed_f32());
     }
 
-    let special_mode = action::is_down(action::Action::SpecialRuleMode, &state.bindings, app);
+    let special_mode = action::is_down(action::Action::SpecialRuleMode, state.settings.bindings(), app);
 
     if game_state.state.editing_formulas {
         match game_state.state.formulas_position {
             Some(position) => {
                 // Check for operator insertion
                 for (i, op) in game_state.logic_system.operators.clone().into_iter().enumerate() {
-                    if action::was_pressed(action::Action::InsertOperator(i as u32), &state.bindings, app) {
+                    if action::was_pressed(action::Action::InsertOperator(i as u32), state.settings.bindings(), app) {
                         
                         record_undo_entry(game_state);
                         match proof::place_uncompleted_operator(op, position, &mut game_state.state.proof, &mut game_state.state.next_formula_index) {
@@ -81,7 +80,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
 
                 // Check for variable insertion
                 for i in 0..MAX_VARIABLE_COUNT {
-                    if action::was_pressed(action::Action::InsertVariable(i), &state.bindings, app) {
+                    if action::was_pressed(action::Action::InsertVariable(i), state.settings.bindings(), app) {
                         
                         record_undo_entry(game_state);
                         match proof::place_variable(i, position, &mut game_state.state.proof) {
@@ -96,12 +95,12 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
                 }
 
                 // Previous and next fields
-                if action::was_pressed(action::Action::NextField, &state.bindings, app) {
+                if action::was_pressed(action::Action::NextField, state.settings.bindings(), app) {
                     game_state.state.formulas_position = Some(proof::formula_as_field(
                         proof::search_fields_by_id_in_proof(&mut game_state.state.proof, Some(position))[0]
                     ).next_id);
                 }
-                if action::was_pressed(action::Action::PreviousField, &state.bindings, app) {
+                if action::was_pressed(action::Action::PreviousField, state.settings.bindings(), app) {
                     game_state.state.formulas_position = Some(proof::formula_as_field(
                         proof::search_fields_by_id_in_proof(&mut game_state.state.proof, Some(position))[0]
                     ).prev_id);
@@ -125,7 +124,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
 
                 // Check for rules insertion
                 for i in 0..game_state.logic_system.rules.len() {
-                    if action::was_pressed(action::Action::InsertRule(i as u32), &state.bindings, app) {
+                    if action::was_pressed(action::Action::InsertRule(i as u32), state.settings.bindings(), app) {
 
                         let rule = if special_mode {
                             match &game_state.logic_system.special_rules[i] {
@@ -185,7 +184,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
         logic_system: &game_state.logic_system,
         scale: game_state.sequent_scale,
         time: app.timer.elapsed_f32(),
-        theme: state.theme,
+        theme: *state.settings.theme(),
         focus_rect: ScreenRect::nothing(),
         fields_creation_time: &mut game_state.state.fields_creation_time,
     };
@@ -205,16 +204,16 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
     adjust_proof_position(state.screen_ratio, proof_width, game_state, focus_rect, app);
 
     // Handle hide UI key
-    if action::was_pressed(action::Action::ToggleKeys, &state.bindings, app) {
-        game_state.keys_visibility = !game_state.keys_visibility;
+    if action::was_pressed(action::Action::ToggleKeys, state.settings.bindings(), app) {
+        state.settings.set_show_game_keys(!state.settings.show_game_keys());
     }
 
-    if game_state.keys_visibility {
+    if *state.settings.show_game_keys() {
         game_ui::render_ui(special_mode, &state.symbol_font, draw, gfx, state);
     }
 
     // Handle exit key 
-    if action::was_pressed(action::Action::Exit, &state.bindings, app) {
+    if action::was_pressed(action::Action::Exit, state.settings.bindings(), app) {
         state.mode = menus::get_in_menu(menus::main_menu());
     }
 }
@@ -346,7 +345,6 @@ pub fn get_initial_state(start_seq: Sequent, time: f32) -> GameMode {
         state: get_start_sequent_state(start_seq.clone(), time),
         sequent_position: ScreenSize::zero(),
         sequent_scale: 1.0,
-        keys_visibility: true,
         last_shake_time: f32::NEG_INFINITY,
         initial_sequent: start_seq,
         finished_proof: false,

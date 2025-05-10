@@ -46,7 +46,7 @@ pub struct RenderInfo<'a> {
     pub logic_system: &'a LogicSystem,
     pub scale: f32,
     pub time: f32,
-    pub theme: crate::Theme,
+    pub theme: crate::settings::Theme,
     // Position of the currently focused element. Set by the draw_proof function
     pub focus_rect: ScreenRect,
     pub fields_creation_time: &'a mut HashMap<u32, f32>,
