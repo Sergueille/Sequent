@@ -2,7 +2,7 @@
 
 use notan::draw::{Draw, DrawShapes, DrawTextSection};
 use notan::app::Graphics;
-use notan::prelude::App;
+use notan::prelude::*;
 use crate::{action, ingame, misc, proof};
 use crate::State;
 use crate::coord::*;
@@ -12,7 +12,7 @@ pub const LABEL_HEIGHT: f32 = 0.07;
 pub const LINE_GAP: f32 = 0.02;
 
 pub const BUTTON_HEIGHT: f32 = 0.1;
-pub const BUTTONS_WIDTH: f32 = 0.7;
+pub const BUTTONS_WIDTH: f32 = 0.8;
 pub const BUTTONS_PADDING: f32 = 0.02;
 pub const BUTTONS_PADDING_FOCUSED: f32 = 0.05;
 
@@ -21,7 +21,9 @@ pub const BUTTONS_COLOR_TAU: f32 = 0.1;
 pub const BUTTONS_PADDING_TAU: f32 = 0.07;
 
 pub const MENU_LEFT_SPACE: f32 = 0.2;
-pub const MENUS_BASE_Y: f32 = 0.0;
+pub const MENUS_BASE_Y: f32 = 0.1;
+pub const MENUS_Y_SCROLL_TAU: f32 = 0.2;
+pub const MENUS_Y_SCROLL_SAFE_ZONE: f32 = 0.5;
 
 pub struct MenuState {
     pub current_menu: Menu,
@@ -29,6 +31,17 @@ pub struct MenuState {
     /// Index of the focused element in the menu, ignoring non focusable elements.
     /// If focused_element is n, there is n focusable elements before the currently focused element.
     pub focused_element: usize,
+
+    /// Screen size. 0.0 is top of the menu 
+    pub y_scroll: f32,
+}
+
+#[derive(Clone)]
+pub struct KeyRecordState {
+    pub next_menu: fn(&State) -> Menu,
+    pub focused_element: usize,
+    pub y_scroll: f32,
+    pub action: action::Action,
 }
 
 /// All info needed to draw a menu
@@ -45,13 +58,15 @@ pub struct DrawInfo<'a> {
 #[derive(Clone, Copy)]
 pub enum MenuEffect {
     ChangeGameMode(fn() -> crate::GameMode),
-    ChangeMenu(fn() -> Menu),
+    ChangeMenu(fn(&State) -> Menu),
+    SetActionKey(action::Action),
     Quit,
     Nothing
 }
 
 pub struct Menu {
     pub elements: Vec<Box<dyn MenuItem>>,
+    pub previous_menu: Option<fn(&State) -> Menu>
 }
 
 /// An element in a menu (button, label, etc...)
@@ -180,17 +195,23 @@ pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mu
 
     let mut position = ScreenPosition { 
         x: MENU_LEFT_SPACE - info.screen_ratio,
-        y: MENUS_BASE_Y,
+        y: MENUS_BASE_Y - menu_state.y_scroll,
     };
 
     let mut nb_focusable = 0;
+    let mut focusable_y = None;
 
     // Draw elements
     for element in menu_state.current_menu.elements.iter_mut() {
         position.y -= element.get_height(&mut info);
 
         if element.get_focusable() {
-            element.draw(position, nb_focusable == menu_state.focused_element, &mut info);            
+            element.draw(position, nb_focusable == menu_state.focused_element, &mut info);        
+
+            if nb_focusable == menu_state.focused_element {
+                focusable_y = Some(position.y);
+            }
+
             nb_focusable += 1;
         }
         else {
@@ -210,6 +231,26 @@ pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mu
 
     menu_state.focused_element %= nb_focusable;
 
+    // Scroll
+    let scroll_amount = match focusable_y {
+        Some(y) => if y > MENUS_Y_SCROLL_SAFE_ZONE {
+            y - MENUS_Y_SCROLL_SAFE_ZONE
+        } else if y < -MENUS_Y_SCROLL_SAFE_ZONE {
+            y + MENUS_Y_SCROLL_SAFE_ZONE 
+        }
+        else {
+            0.0
+        },
+        None => 0.0,
+    };
+
+    menu_state.y_scroll += scroll_amount * info.app.timer.delta_f32() / MENUS_Y_SCROLL_TAU;
+    if menu_state.y_scroll > 0.0 {
+        menu_state.y_scroll = 0.0;
+    }
+
+    let previous_menu = menu_state.current_menu.previous_menu; // Copy this value now to allow mutating the state
+
     // Check for interactions
     let mut nb_focusable = 0;
     for element in menu_state.current_menu.elements.iter_mut() {
@@ -220,11 +261,19 @@ pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mu
                 match element.get_effect() {
                     MenuEffect::ChangeGameMode(mode) => state.mode = mode(),
                     MenuEffect::ChangeMenu(menu) => {
-                        state.mode = get_in_menu(menu());
+                        state.mode = get_in_menu(menu(state));
                     },
                     MenuEffect::Quit => {
-                        app.exit();
+                        info.app.exit();
                     },
+                    MenuEffect::SetActionKey(action) => {
+                        state.mode = crate::GameMode::SetKey(KeyRecordState {
+                            next_menu: keyboard,
+                            focused_element: menu_state.focused_element,
+                            y_scroll: menu_state.y_scroll,
+                            action,
+                        });
+                    }
                     MenuEffect::Nothing => { },
                 }
 
@@ -232,6 +281,16 @@ pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mu
             }
 
             nb_focusable += 1;
+        }
+    }
+
+    // Check for back key
+    if action::was_pressed(action::Action::Exit, state.settings.bindings(), info.app) {
+        match previous_menu {
+            Some(get_menu) => {
+                state.mode = get_in_menu(get_menu(state));
+            },
+            None => { }
         }
     }
 }
@@ -252,47 +311,102 @@ fn label(label: &str) -> Box<Label> {
     });
 }
 
-pub fn main_menu() -> Menu {
+pub fn main_menu(_: &State) -> Menu {
     return Menu { 
         elements: vec![
             button("Free editing", MenuEffect::ChangeGameMode(start_free_editing)),
             button("Settings", MenuEffect::ChangeMenu(settings)),
             button("Quit", MenuEffect::ChangeMenu(quit_confirmation)),
         ], 
+        previous_menu: None,
     };
 }
 
-pub fn settings() -> Menu {
+pub fn settings(_: &State) -> Menu {
     return Menu { 
         elements: vec![
             label("Settings"),
             button("Keyboard", MenuEffect::ChangeMenu(keyboard)),
-            button("Back", MenuEffect::ChangeMenu(main_menu)),
-        ], 
+            button("Back", MenuEffect::ChangeMenu(main_menu))
+        ],
+        previous_menu: Some(main_menu),
     };
 }
 
-pub fn keyboard() -> Menu {
+pub fn keyboard(state: &State) -> Menu {
+    let mut pairs = state.settings.bindings().iter()
+        .filter(|(action, _)| {
+            **action != action::Action::NoAc
+        })
+        .collect::<Vec<(&action::Action, &KeyCode)>>();
+
+    pairs.sort_by(|(a, _), (b, _)| {
+        action::get_action_name(**a).cmp(&action::get_action_name(**b))
+    });
+
+    let mut keys = pairs.into_iter().map(|(action, key_name)| {
+        button(
+            &format!("{}: {}", action::get_action_name(*action), action::key_code_display(*key_name)),
+            MenuEffect::SetActionKey(*action),
+        ) as Box<dyn MenuItem>
+    }).collect();
+
+    let mut res: Vec<Box<dyn MenuItem>> = vec![
+        label("Keyboard configuration"),
+    ];
+
+    res.append(&mut keys);
+
+    res.push(button("Back", MenuEffect::ChangeMenu(settings)));
+
+
     return Menu { 
-        elements: vec![
-            label("Keyboard configuration: TODO :)"), // TODO
-            button("Back", MenuEffect::ChangeMenu(settings)),
-        ], 
+        elements: res,
+        previous_menu: Some(settings)
     };
 }
 
-pub fn quit_confirmation() -> Menu {
+pub fn quit_confirmation(_: &State) -> Menu {
     return Menu { 
         elements: vec![
             label("Confirm exiting the app?"),
             button("No", MenuEffect::ChangeMenu(main_menu)),
             button("Yes", MenuEffect::Quit)
         ], 
+        previous_menu: Some(main_menu),
     };
 }
 
 pub fn get_in_menu(m: Menu) -> crate::GameMode {
-    return crate::GameMode::Menu(MenuState { current_menu: m, focused_element: 0 });
+    return crate::GameMode::Menu(MenuState { current_menu: m, focused_element: 0, y_scroll: 0.0 });
+}
+
+pub fn handle_key_input(key_record_state: KeyRecordState, state: &mut State, draw: &mut Draw, gfx: &Graphics, app: &App) {
+    let center = ScreenPosition::center();
+
+    let text_content = format!("Press a key to assign it to: {}", action::get_action_name(key_record_state.action));
+    let mut text = draw.text(&state.text_font, &text_content);
+    text.position(center.to_pixel(gfx).x, center.to_pixel(gfx).y)
+        .v_align_middle()
+        .h_align_center();
+
+    set_text_size(&mut text, 60.0, gfx);
+
+    match action::which_key_pressed(app) {
+        Some(key) => {
+            let mut new_bindings = state.settings.bindings().clone();
+            new_bindings.insert(key_record_state.action, key);
+            
+            state.settings.set_bindings(new_bindings);
+
+            state.mode = crate::GameMode::Menu(MenuState { 
+                current_menu: (key_record_state.next_menu)(state), 
+                focused_element: key_record_state.focused_element, 
+                y_scroll: key_record_state.y_scroll, 
+            });
+        },
+        None => { },
+    }
 }
 
 fn start_free_editing() -> crate::GameMode {

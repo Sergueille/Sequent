@@ -28,6 +28,7 @@ mod misc;
 enum GameMode {
     Ingame(ingame::GameState),
     Menu(menus::MenuState),
+    SetKey(menus::KeyRecordState),
     None,
 }
 
@@ -101,19 +102,24 @@ fn setup(gfx: &mut Graphics) -> State {
         },
     };
 
-    return State {
+    let mut state = State {
         text_font: font,
         symbol_font, 
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
-        mode: GameMode::Menu(menus::MenuState {
-            current_menu: menus::main_menu(),
-            focused_element: 0,
-        }),
+        mode: GameMode::None,
         // mode: ingame::get_initial_state(proof::get_empty_sequent(), 0.0),
         screen_ratio: 1.0,
         background_state: background::init_background_state(),
         settings,
     };
+
+    state.mode = GameMode::Menu(menus::MenuState {
+        current_menu: menus::main_menu(&state),
+        focused_element: 0,
+        y_scroll: 0.0,
+    });
+
+    return state;
 }
 
 fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut State) {
@@ -157,6 +163,9 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
         GameMode::Menu(_) => {
             menus::draw_menu(state, app, gfx, &mut draw);
         },
+        GameMode::SetKey(s) => {
+            menus::handle_key_input(s.clone(), state, &mut draw, gfx, app);
+        }
         GameMode::None => { }
     }
 

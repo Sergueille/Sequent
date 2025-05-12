@@ -29,7 +29,9 @@ Contraposée             A -> B |- !B -> !A                      1              
                         A -> B |- !A ou B                       2               oui
                         !A ou B |- A -> B                       2               non
                         (A -> B) -> (B -> A) |- B -> A          2               non
-Associativité du et     A et (B et C) -> (A et B) et C          1               non   
-Associativité du ou     A ou (B ou C) -> (A ou B) ou C          1+              non   
-Non / implique bottom   !A -> (A -> bottom)                     0               non
-Non / implique bottom   (A -> bottom) -> !A                     0               non
+Associativité du et     A et (B et C) |- (A et B) et C          1               non   
+Associativité du ou     A ou (B ou C) |- (A ou B) ou C          1+              non   
+Non / implique bottom   !A |- (A -> bottom)                     0               non
+Non / implique bottom   (A -> bottom) |- !A                     0               non
+                        !(A -> B) |- A et !B                    2               oui
+                        ((A -> B) -> A) -> A                    3               oui

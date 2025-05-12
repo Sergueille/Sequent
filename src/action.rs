@@ -142,6 +142,10 @@ pub fn is_down(action: Action, bindings: &HashMap<Action, KeyCode>, app: &App) -
     }
 }
 
+pub fn which_key_pressed(app: &App) -> Option<KeyCode> {
+    app.keyboard.pressed.iter().next().copied()
+}
+
 pub fn key_code_display(code: KeyCode) -> String {
     match code {
         KeyCode::Escape => String::from("Esc"),
@@ -149,3 +153,27 @@ pub fn key_code_display(code: KeyCode) -> String {
         _ => format!("{:?}", code),
     }
 }
+
+
+pub fn get_action_name(action: Action) -> String {
+    match action {
+        Action::NoAc => "Nothing".into(),
+        Action::InsertOperator(i) => format!("Insert operator {}", i),
+        Action::InsertVariable(i) => format!("Insert variable {}", i),
+        Action::InsertRule(i) => format!("Use rule {}", i),
+        Action::SpecialRuleMode => "Use special rules".into(),
+        Action::NextField => "Next field".into(),
+        Action::PreviousField => "Previous field".into(),
+        Action::Undo => "Undo".into(),
+        Action::Redo => "Redo".into(),
+        Action::Restart => "Restart sequent".into(),
+        Action::ToggleKeys => "Toggle ingame UI".into(),
+        Action::Exit => "Menus Back/Exit".into(),
+        Action::Up => "Menus up".into(),
+        Action::Down => "Menus down".into(),
+        Action::Right => "Menus right".into(),
+        Action::Left => "Menus left".into(),
+        Action::Confirm => "Menus confirm".into(),
+    }
+}
+

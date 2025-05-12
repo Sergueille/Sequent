@@ -214,7 +214,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
 
     // Handle exit key 
     if action::was_pressed(action::Action::Exit, state.settings.bindings(), app) {
-        state.mode = menus::get_in_menu(menus::main_menu());
+        state.mode = menus::get_in_menu(menus::main_menu(state));
     }
 }
 
