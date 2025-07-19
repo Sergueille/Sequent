@@ -22,6 +22,7 @@ mod ingame;
 mod menus;
 mod settings;
 mod misc;
+mod parser;
 
 /// Current global state of the game.
 #[allow(clippy::large_enum_variant)]
