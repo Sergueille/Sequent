@@ -7,18 +7,27 @@ use crate::HashMap;
 
 use std::str::Chars;
 
+#[derive(Clone)]
+pub enum Difficulty {
+    Immediate,
+    Easy,
+    Medium,
+    Hard,
+}
+
+#[derive(Clone)]
 pub struct Level{
-    id: usize,
-    name: String,
-    seq: Sequent,
-    diff: bool,
-    raa: bool
+    pub id: usize,
+    pub name: String,
+    pub seq: Sequent,
+    pub difficulty: Difficulty,
+    pub raa: bool
 }
 
 impl Level {
     pub fn empty() -> Level{
         let seq = Sequent {before: vec![], after: vec![]};
-        Level {id: 0, name: "".to_string(), seq, diff: true, raa: false}
+        Level {id: 0, name: "".to_string(), seq, difficulty: Difficulty::Immediate, raa: false}
     }
 }
 
@@ -116,16 +125,28 @@ pub fn parse_ligne(ligne: &str, ligne_number: usize) -> Level{
     result.seq = parse_sequent(&infos[2].replace(" ",""), ligne_number);
     
     match usize::from_str_radix(infos[3],1){
-        Ok(u) => result.diff = u == 1,
+        Ok(u) => todo!(),
         Err(_) => println!("Syntax error on ligne {}: invalide difficult", ligne_number),
     }
 
     match usize::from_str_radix(infos[4],1){
-        Ok(u) => result.diff = u == 1,
+        Ok(u) => result.raa = u == 1,
         Err(_) => println!("Syntax error on ligne {}: invalide raa", ligne_number),
     }
 
     result
+}
+
+impl ToString for Difficulty
+{
+    fn to_string(&self) -> String {
+        String::from(match self {
+            Difficulty::Immediate => "Immediate",
+            Difficulty::Easy => "Easy",
+            Difficulty::Medium => "Medium",
+            Difficulty::Hard => "Hard",
+        })
+    }
 }
 
 // */

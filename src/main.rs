@@ -11,6 +11,8 @@ use notan::draw::*;
 use notan::egui::{self, *};
 use rendering::draw_proof;
 use rendering::get_proof_width;
+use crate::parser::Difficulty;
+use crate::parser::Level;
 
 mod proof;
 mod coord;
@@ -52,6 +54,7 @@ struct State {
     screen_ratio: f32,
     background_state: background::BackgroundState,
     settings: settings::Settings,
+    levels: Vec<Level>,
 }
 
 
@@ -103,6 +106,23 @@ fn setup(gfx: &mut Graphics) -> State {
         },
     };
 
+    let test_levels = vec![
+        Level { 
+            id: 0, 
+            name: "Test sequent".to_string(), 
+            seq: Sequent { before: vec![Formula::Variable(0)], after: vec![Formula::Variable(1)] }, 
+            difficulty: Difficulty::Immediate, 
+            raa: false 
+        },
+        Level { 
+            id: 1,
+            name: "Other test".to_string(), 
+            seq: Sequent { before: vec![Formula::Variable(2)], after: vec![Formula::Variable(3)] }, 
+            difficulty: Difficulty::Medium, 
+            raa: false 
+        },
+    ];
+
     let mut state = State {
         text_font: font,
         symbol_font, 
@@ -112,6 +132,7 @@ fn setup(gfx: &mut Graphics) -> State {
         screen_ratio: 1.0,
         background_state: background::init_background_state(),
         settings,
+        levels: test_levels,
     };
 
     state.mode = GameMode::Menu(menus::MenuState {

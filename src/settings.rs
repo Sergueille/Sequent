@@ -9,6 +9,7 @@ pub const SETTINGS_FILE: &str = "settings.ron";
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct Theme {
     pub ui_text: Color,
+    pub ui_text_dark: Color,
     pub ui_bg: Color,
     pub ui_button: Color,
     pub ui_button_focus: Color,
@@ -79,6 +80,7 @@ pub fn load_settings() -> Result<Settings, LoadError> {
 pub fn get_default_theme() -> Theme {
     return Theme {
         ui_text: Color::from_hex(0xeeeeeeff),
+        ui_text_dark: Color::from_hex(0x888888ff),
         ui_bg: Color::from_hex(0x222222ff),
         ui_button: Color::from_hex(0x222222ff),
         ui_button_focus: Color::from_hex(0x333333ff),

@@ -1,8 +1,12 @@
 
 
+use std::collections::HashMap;
+
 use notan::draw::{Draw, DrawShapes, DrawTextSection};
 use notan::app::Graphics;
 use notan::prelude::*;
+use crate::coord::PixelPosition;
+use crate::parser::Level;
 use crate::{action, ingame, misc, proof};
 use crate::State;
 use crate::coord::*;
@@ -19,6 +23,11 @@ pub const BUTTONS_PADDING_FOCUSED: f32 = 0.05;
 pub const BUTTONS_FLASH_TAU: f32 = 0.1;
 pub const BUTTONS_COLOR_TAU: f32 = 0.1;
 pub const BUTTONS_PADDING_TAU: f32 = 0.07;
+
+pub const LEVEL_SELECTION_HEIGHT: f32 = 0.15;
+pub const LEVEL_SELECTION_WIDTH: f32 = 1.2;
+pub const LEVEL_SELECTION_MARGIN_AFTER_NAME: f32 = 0.05;
+pub const LEVEL_SELECTION_DIFFICULTY_TEXT_SIZE: f32 = 20.0;
 
 pub const MENU_LEFT_SPACE: f32 = 0.2;
 pub const MENUS_BASE_Y: f32 = 0.1;
@@ -52,7 +61,9 @@ pub struct DrawInfo<'a> {
     pub app: &'a mut App,
     pub theme: crate::settings::Theme,
     pub text_font: &'a crate::Font,
+    pub symbol_font: &'a crate::Font,
     pub bindings: &'a crate::action::Bindings,
+    pub cached_sizes: &'a HashMap<char, f32>
 }
 
 #[derive(Clone, Copy)]
@@ -87,37 +98,24 @@ pub struct Button {
     pub on_press: MenuEffect,
 }
 
+pub struct LevelSelection {
+    pub level: Level,
+    pub last_focused_time: f32,
+    pub last_unfocused_time: f32,
+}
+
 pub struct Label {
     pub label: String,
 }
 
 impl MenuItem for Button {
     fn draw(&mut self, bottom_left: ScreenPosition, focused: bool, info: &mut DrawInfo) {
-        let time = info.app.timer.elapsed_f32();
-        if focused {
-            self.last_focused_time = time;
-        }
-        else {
-            self.last_unfocused_time = time;
-        }
+        handle_focus_times(&mut self.last_focused_time, &mut self.last_unfocused_time, focused, info);
 
         let size = ScreenSize { x: BUTTONS_WIDTH, y: BUTTON_HEIGHT };
 
-        let bg_color = if focused {
-            let t = crate::animation::ease_out_exp(time - self.last_unfocused_time, BUTTONS_FLASH_TAU);
-            misc::color_lerp(info.theme.ui_button_flash, info.theme.ui_button_focus, t)
-        } else {
-            let t = crate::animation::ease_out_exp(time - self.last_focused_time, BUTTONS_FLASH_TAU);
-            misc::color_lerp(info.theme.ui_button_focus, info.theme.ui_button, t)
-        };
-
-        let left_padding = if focused {
-            let t = crate::animation::ease_out_exp(time - self.last_unfocused_time, BUTTONS_PADDING_TAU);
-            misc::lerp(BUTTONS_PADDING, BUTTONS_PADDING_FOCUSED, t)
-        } else {
-            let t = crate::animation::ease_out_exp(time - self.last_focused_time, BUTTONS_PADDING_TAU);
-            misc::lerp(BUTTONS_PADDING_FOCUSED, BUTTONS_PADDING, t)
-        };
+        let bg_color = get_bg_color(self.last_focused_time, self.last_unfocused_time, focused, info);
+        let left_padding = get_left_padding(self.last_focused_time, self.last_unfocused_time, focused, info);
 
         info.draw.rect(bottom_left.to_pixel(info.gfx).as_couple(), size.to_pixel(info.gfx))
             .color(bg_color);
@@ -179,6 +177,91 @@ impl MenuItem for Label {
     }
 }
 
+impl MenuItem for LevelSelection {
+    fn draw(&mut self, bottom_left: ScreenPosition, focused: bool, info: &mut DrawInfo) {
+        handle_focus_times(&mut self.last_focused_time, &mut self.last_unfocused_time, focused, info);
+
+        let size = ScreenSize { x: LEVEL_SELECTION_WIDTH, y: LEVEL_SELECTION_HEIGHT };
+
+        let bg_color = get_bg_color(self.last_focused_time, self.last_unfocused_time, focused, info);
+        let left_padding = get_left_padding(self.last_focused_time, self.last_unfocused_time, focused, info);
+
+        info.draw.rect(bottom_left.to_pixel(info.gfx).as_couple(), size.to_pixel(info.gfx))
+            .color(bg_color);
+
+        let mut text_pos = bottom_left;
+        text_pos.x += left_padding;
+        text_pos.y += BUTTON_HEIGHT * 0.5;
+
+        {
+            let mut text = info.draw.text(info.text_font, &self.level.name);
+            
+            text.position(text_pos.to_pixel(info.gfx).x, text_pos.to_pixel(info.gfx).y)
+                .v_align_middle()
+                .h_align_left();
+        
+            set_text_size(&mut text, TEXT_SIZE, info.gfx);
+        }
+
+        let text_width = PixelPosition::from_couple((info.draw.last_text_bounds().width, 0.0)).to_screen(&info.gfx).difference_with(
+            PixelPosition::from_couple((0.0, 0.0)).to_screen(&info.gfx)
+        ).x;
+
+        text_pos.x += text_width + LEVEL_SELECTION_MARGIN_AFTER_NAME;
+        text_pos.y -= BUTTON_HEIGHT * 0.5;
+
+        let mut render_info = proof::rendering::RenderInfo {
+            draw: info.draw,
+            gfx: info.gfx,
+            text_font: info.text_font,
+            symbol_font: info.symbol_font,
+            cached_sizes: info.cached_sizes,
+            focused_formula_field: None,
+            editing_formulas: false,
+            logic_system: &proof::natural_logic::get_system(),
+            scale: 1.0,
+            time: 0.0,
+            theme: info.theme,
+            focus_rect: ScreenRect::nothing(),
+            fields_creation_time: &mut HashMap::new(),
+        };
+
+        proof::rendering::draw_sequent(&self.level.seq, text_pos, 1.0, &mut render_info);
+        let width = proof::rendering::get_sequent_width(&self.level.seq, &mut render_info);
+
+        text_pos.x += width + LEVEL_SELECTION_MARGIN_AFTER_NAME;
+        text_pos.y += BUTTON_HEIGHT * 0.5;
+
+        {
+            let diff_string = format!("({})", self.level.difficulty.to_string());
+            let mut text = info.draw.text(info.text_font, &diff_string);
+            
+            text.position(text_pos.to_pixel(info.gfx).x, text_pos.to_pixel(info.gfx).y)
+                .v_align_middle()
+                .h_align_left()
+                .color(info.theme.ui_text_dark);
+        
+            set_text_size(&mut text, LEVEL_SELECTION_DIFFICULTY_TEXT_SIZE, info.gfx);
+        }
+    }
+
+    fn on_interact(&mut self) {
+        // TODO
+    }
+
+    fn get_effect(&self) -> MenuEffect { 
+        MenuEffect::Nothing
+    }
+
+    fn get_height(&self, _info: &mut DrawInfo) -> f32 {
+        LEVEL_SELECTION_HEIGHT
+    }
+
+    fn get_focusable(&self) -> bool {
+        true
+    }
+}
+
 /// Draw and update the menu (change focus, animate elements, call callbacks...) for the frame
 pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mut Draw) {
     let crate::GameMode::Menu(menu_state) = &mut state.mode else { unreachable!() }; 
@@ -190,7 +273,9 @@ pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mu
         gfx,
         theme: *state.settings.theme(),
         text_font: &state.text_font,
+        symbol_font: &state.symbol_font,
         bindings: state.settings.bindings(),
+        cached_sizes: &state.cached_sizes,
     };
 
     let mut position = ScreenPosition { 
@@ -314,11 +399,25 @@ fn label(label: &str) -> Box<Label> {
 pub fn main_menu(_: &State) -> Menu {
     return Menu { 
         elements: vec![
+            button("Solve", MenuEffect::ChangeMenu(level_list)),
             button("Free editing", MenuEffect::ChangeGameMode(start_free_editing)),
             button("Settings", MenuEffect::ChangeMenu(settings)),
             button("Quit", MenuEffect::ChangeMenu(quit_confirmation)),
         ], 
         previous_menu: None,
+    };
+}
+
+pub fn level_list(state: &State) -> Menu {
+    let mut levels_buttons: Vec<Box<dyn MenuItem>> = state.levels.iter().map(
+        |level| Box::new(LevelSelection { level: level.clone(), last_focused_time: 0.0, last_unfocused_time: 0.0 }) as Box<dyn MenuItem>
+    ).collect();
+
+    levels_buttons.push(button("Back", MenuEffect::ChangeMenu(main_menu)));
+
+    return Menu { 
+        elements: levels_buttons, 
+        previous_menu: Some(main_menu),
     };
 }
 
@@ -412,4 +511,37 @@ pub fn handle_key_input(key_record_state: KeyRecordState, state: &mut State, dra
 fn start_free_editing() -> crate::GameMode {
     return ingame::get_initial_state(proof::get_empty_sequent(), 0.0);
 }
+
+fn handle_focus_times(last_focused_time: &mut f32, last_unfocused_time: &mut f32, focused: bool, info: &mut DrawInfo) {
+    let time = info.app.timer.elapsed_f32();
+    if focused {
+        *last_focused_time = time;
+    }
+    else {
+        *last_unfocused_time = time;
+    }
+}
+
+fn get_bg_color(last_focused_time: f32, last_unfocused_time: f32, focused: bool, info: &mut DrawInfo) -> Color {
+    let time = info.app.timer.elapsed_f32();
+    if focused {
+        let t = crate::animation::ease_out_exp(time - last_unfocused_time, BUTTONS_FLASH_TAU);
+        return misc::color_lerp(info.theme.ui_button_flash, info.theme.ui_button_focus, t);
+    } else {
+        let t = crate::animation::ease_out_exp(time - last_focused_time, BUTTONS_FLASH_TAU);
+        return misc::color_lerp(info.theme.ui_button_focus, info.theme.ui_button, t);
+    }
+}
+
+fn get_left_padding(last_focused_time: f32, last_unfocused_time: f32, focused: bool, info: &mut DrawInfo) -> f32 {
+    let time = info.app.timer.elapsed_f32();
+    if focused {
+        let t = crate::animation::ease_out_exp(time - last_unfocused_time, BUTTONS_PADDING_TAU);
+        return misc::lerp(BUTTONS_PADDING, BUTTONS_PADDING_FOCUSED, t);
+    } else {
+        let t = crate::animation::ease_out_exp(time - last_focused_time, BUTTONS_PADDING_TAU);
+        return misc::lerp(BUTTONS_PADDING_FOCUSED, BUTTONS_PADDING, t);
+    }
+}
+
 
