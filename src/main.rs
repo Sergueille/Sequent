@@ -11,7 +11,8 @@ use notan::draw::*;
 use notan::egui::{self, *};
 use rendering::draw_proof;
 use rendering::get_proof_width;
-use crate::parser::Difficulty;
+use crate::parser::*;
+// use crate::parser::Difficulty;
 use crate::parser::Level;
 
 mod proof;
@@ -58,9 +59,9 @@ struct State {
 }
 
 
-/// Part of the screen, next to left and right borders, where focused element shouldn't be (screen space) 
+/// Part of the screen, next to left and right borders, where focused element shouldn't be (screen space)
 pub const SEQUENT_SAFE_ZONE_SIDES: f32 = 0.3;
-/// Part of the screen, next to the top, where focused element shouldn't be (screen space) 
+/// Part of the screen, next to the top, where focused element shouldn't be (screen space)
 pub const SEQUENT_SAFE_ZONE_TOP: f32 = 0.5;
 pub const CAMERA_MOVEMENT_SPEED_X: f32 = 5.0;
 pub const CAMERA_MOVEMENT_SPEED_Y: f32 = 6.0;
@@ -69,7 +70,7 @@ pub const CAMERA_MOVEMENT_SPEED_SCALE: f32 = 7.0;
 
 #[notan_main]
 fn main() -> Result<(), String> {
-    calculation_test();
+    // calculation_test();
 
     // Get backtraces
     std::env::set_var("RUST_BACKTRACE", "1");
@@ -106,26 +107,28 @@ fn setup(gfx: &mut Graphics) -> State {
         },
     };
 
-    let test_levels = vec![
-        Level { 
-            id: 0, 
-            name: "Test sequent".to_string(), 
-            seq: Sequent { before: vec![Formula::Variable(0)], after: vec![Formula::Variable(1)] }, 
-            difficulty: Difficulty::Immediate, 
-            raa: false 
-        },
-        Level { 
-            id: 1,
-            name: "Other test".to_string(), 
-            seq: Sequent { before: vec![Formula::Variable(2)], after: vec![Formula::Variable(3)] }, 
-            difficulty: Difficulty::Medium, 
-            raa: false 
-        },
-    ];
+    // let test_levels = vec![
+    //     Level {
+    //         id: 0,
+    //         name: "Test sequent".to_string(),
+    //         seq: Sequent { before: vec![Formula::Variable(0)], after: vec![Formula::Variable(1)] },
+    //         difficulty: Difficulty::Immediate,
+    //         raa: false
+    //     },
+    //     Level {
+    //         id: 1,
+    //         name: "Other test".to_string(),
+    //         seq: Sequent { before: vec![Formula::Variable(2)], after: vec![Formula::Variable(3)] },
+    //         difficulty: Difficulty::Medium,
+    //         raa: false
+    //     },
+    // ];
+    
+    let test_levels = parse_file("assets/levels/test.sq");
 
     let mut state = State {
         text_font: font,
-        symbol_font, 
+        symbol_font,
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
         mode: GameMode::None,
         // mode: ingame::get_initial_state(proof::get_empty_sequent(), 0.0),
@@ -170,7 +173,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             // UI code here
         });
     });
-    
+
     ui_output.clear_color(state.settings.theme().bg);
 
     let (w, h) = gfx.size();
@@ -201,8 +204,8 @@ fn calculation_test() {
         after: vec![
             Formula::Operator(Operator {
                 operator_type: OperatorType::Or,
-                arg1: Some(Box::new(Formula::Operator(Operator { 
-                    operator_type: OperatorType::Not, 
+                arg1: Some(Box::new(Formula::Operator(Operator {
+                    operator_type: OperatorType::Not,
                     arg1: Some(Box::new(Formula::Variable(1))), arg2: None }))),
                     arg2: Some(Box::new(Formula::Variable(1))),
             })

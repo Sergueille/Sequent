@@ -1,8 +1,0 @@
-# Comments can be usefull
-# Format : id; "nom";                               sequent;                                        difficulty;                     RAA
-0; "double negation";                               A - !!A;                                       1;                              0
-1; "reverse double negation";                       !!A |- A;                                       1;                              1
-2; "or left distribution";                          A | (B & C) - (A | B) & (A | c);          2;                              0
-3; "reverse or left distribution";                  (A | B) & (A & C) - A & (B & C);          2;                              0
-4; "and left distribution";                         A & (B | C) - (A & B) | (A & C);          2;                              0
-5; "reverse and left distribution";                 (A & B) | (A & C) - A & (B | C);          2;                              0
