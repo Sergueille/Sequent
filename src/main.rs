@@ -56,6 +56,7 @@ struct State {
     background_state: background::BackgroundState,
     settings: settings::Settings,
     levels: Vec<Level>,
+    time: f32,
 }
 
 
@@ -107,24 +108,7 @@ fn setup(gfx: &mut Graphics) -> State {
         },
     };
 
-    // let test_levels = vec![
-    //     Level {
-    //         id: 0,
-    //         name: "Test sequent".to_string(),
-    //         seq: Sequent { before: vec![Formula::Variable(0)], after: vec![Formula::Variable(1)] },
-    //         difficulty: Difficulty::Immediate,
-    //         raa: false
-    //     },
-    //     Level {
-    //         id: 1,
-    //         name: "Other test".to_string(),
-    //         seq: Sequent { before: vec![Formula::Variable(2)], after: vec![Formula::Variable(3)] },
-    //         difficulty: Difficulty::Medium,
-    //         raa: false
-    //     },
-    // ];
-    
-    let test_levels = parse_file("assets/levels/test.sq");
+    let levels = parse_file("assets/levels/test.sq");
 
     let mut state = State {
         text_font: font,
@@ -135,7 +119,8 @@ fn setup(gfx: &mut Graphics) -> State {
         screen_ratio: 1.0,
         background_state: background::init_background_state(),
         settings,
-        levels: test_levels,
+        levels,
+        time: 0.0,
     };
 
     state.mode = GameMode::Menu(menus::MenuState {
@@ -150,6 +135,8 @@ fn setup(gfx: &mut Graphics) -> State {
 fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut State) {
     let mut draw = gfx.create_draw();
     // draw.clear(Color::BLACK);
+
+    state.time = app.timer.elapsed_f32();
 
     // Draw FPS
     {

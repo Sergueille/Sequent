@@ -14,6 +14,8 @@ pub struct GameState {
     pub last_shake_time: f32,
     pub initial_sequent: Sequent,
     pub finished_proof: bool,
+    pub current_level_id: Option<usize>,
+    pub edit_start_time: f32,
 }
 
 #[derive(Clone)]
@@ -192,7 +194,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
     let proof_width = get_proof_width(&game_state.state.proof, &mut render_info);
     let mut base_position = ScreenPosition {
         x: -proof_width * 0.5,
-        y: -0.7,
+        y: -0.5,
     };
 
     base_position = base_position.add(shake_delta);
@@ -208,16 +210,38 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
         state.settings.set_show_game_keys(!state.settings.show_game_keys());
     }
 
+    if game_state.finished_proof || game_state.undo_stack.is_empty() {
+        game_ui::render_bottom_ui(draw, gfx, state);
+    }
+    
     if *state.settings.show_game_keys() {
         game_ui::render_ui(special_mode, &state.symbol_font, draw, gfx, state);
     }
-
-    // Handle exit key 
-    if action::was_pressed(action::Action::Exit, state.settings.bindings(), app) {
+    
+    let GameMode::Ingame(game_state) = &mut state.mode else { unreachable!(); };
+    
+    if action::was_pressed(action::Action::Exit, state.settings.bindings(), app) { // Handle exit key 
         state.mode = menus::get_in_menu(menus::main_menu(state));
     }
-}
+    else if action::was_pressed(action::Action::Left, state.settings.bindings(), app) { // Handle level change
+        if game_state.current_level_id.is_some() {
+            let id = game_state.current_level_id.unwrap();
 
+            if id > 0 {
+                state.mode = ingame::get_initial_state(Some(id - 1) , state)
+            }
+        }
+    }
+    else if action::was_pressed(action::Action::Right, state.settings.bindings(), app) {  
+        if game_state.current_level_id.is_some() {
+            let id = game_state.current_level_id.unwrap();
+
+            if id < state.levels.len() - 1{
+                state.mode = ingame::get_initial_state(Some(id + 1) , state)
+            }
+        }
+    }
+}
 
 
 fn record_undo_entry(gs: &mut GameState) {
@@ -337,17 +361,26 @@ fn adjust_proof_position(screen_ratio: f32, proof_width: f32, game_state: &mut G
     game_state.sequent_scale += (target_size - game_state.sequent_scale) * CAMERA_MOVEMENT_SPEED_SCALE * app.timer.delta_f32();
 }
 
-pub fn get_initial_state(start_seq: Sequent, time: f32) -> GameMode {
+pub fn get_initial_state(level_id: Option<usize>, state: &State) -> GameMode {
+    let start_seq = match level_id {
+        Some(i) => {
+            state.levels[i].seq.clone()
+        },
+        None => proof::get_empty_sequent(),
+    };
+
     return GameMode::Ingame(ingame::GameState {
         logic_system: proof::natural_logic::get_system(),
         undo_stack: Vec::new(),
         redo_stack: Vec::new(),
-        state: get_start_sequent_state(start_seq.clone(), time),
+        state: get_start_sequent_state(start_seq.clone(), state.time),
         sequent_position: ScreenSize::zero(),
         sequent_scale: 1.0,
         last_shake_time: f32::NEG_INFINITY,
         initial_sequent: start_seq,
         finished_proof: false,
+        current_level_id: level_id,
+        edit_start_time: state.time,
     });
 }
 

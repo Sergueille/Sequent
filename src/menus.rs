@@ -1,6 +1,7 @@
 
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use notan::draw::{Draw, DrawShapes, DrawTextSection};
 use notan::app::Graphics;
@@ -24,8 +25,11 @@ pub const BUTTONS_FLASH_TAU: f32 = 0.1;
 pub const BUTTONS_COLOR_TAU: f32 = 0.1;
 pub const BUTTONS_PADDING_TAU: f32 = 0.07;
 
-pub const LEVEL_SELECTION_HEIGHT: f32 = 0.15;
+pub const LEVEL_SELECTION_HEIGHT: f32 = 0.2;
 pub const LEVEL_SELECTION_WIDTH: f32 = 1.2;
+pub const LEVEL_SELECTION_NAME_Y: f32 = 0.1;
+pub const LEVEL_SELECTION_DIFFICULTY_Y: f32 = 0.11;
+pub const LEVEL_SELECTION_SEQUENT_Y: f32 = 0.02;
 pub const LEVEL_SELECTION_MARGIN_AFTER_NAME: f32 = 0.05;
 pub const LEVEL_SELECTION_DIFFICULTY_TEXT_SIZE: f32 = 20.0;
 
@@ -66,9 +70,9 @@ pub struct DrawInfo<'a> {
     pub cached_sizes: &'a HashMap<char, f32>
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum MenuEffect {
-    ChangeGameMode(fn() -> crate::GameMode),
+    ChangeGameMode(Rc<dyn Fn(&State) -> crate::GameMode>),
     ChangeMenu(fn(&State) -> Menu),
     SetActionKey(action::Action),
     Quit,
@@ -100,6 +104,7 @@ pub struct Button {
 
 pub struct LevelSelection {
     pub level: Level,
+    pub id: usize,
     pub last_focused_time: f32,
     pub last_unfocused_time: f32,
 }
@@ -138,7 +143,7 @@ impl MenuItem for Button {
     }
 
     fn get_effect(&self) -> MenuEffect { 
-        self.on_press
+        self.on_press.clone()
     }
 
     fn get_height(&self, _info: &mut DrawInfo) -> f32 {
@@ -191,24 +196,40 @@ impl MenuItem for LevelSelection {
 
         let mut text_pos = bottom_left;
         text_pos.x += left_padding;
-        text_pos.y += BUTTON_HEIGHT * 0.5;
+        text_pos.y += LEVEL_SELECTION_NAME_Y;
 
         {
             let mut text = info.draw.text(info.text_font, &self.level.name);
             
             text.position(text_pos.to_pixel(info.gfx).x, text_pos.to_pixel(info.gfx).y)
-                .v_align_middle()
+                .v_align_bottom()
                 .h_align_left();
         
             set_text_size(&mut text, TEXT_SIZE, info.gfx);
         }
-
+        
         let text_width = PixelPosition::from_couple((info.draw.last_text_bounds().width, 0.0)).to_screen(&info.gfx).difference_with(
             PixelPosition::from_couple((0.0, 0.0)).to_screen(&info.gfx)
         ).x;
 
         text_pos.x += text_width + LEVEL_SELECTION_MARGIN_AFTER_NAME;
-        text_pos.y -= BUTTON_HEIGHT * 0.5;
+        text_pos.y += LEVEL_SELECTION_DIFFICULTY_Y - LEVEL_SELECTION_NAME_Y;
+
+        {
+            let diff_string = format!("({})", self.level.difficulty.to_string());
+            let mut text = info.draw.text(info.text_font, &diff_string);
+            
+            text.position(text_pos.to_pixel(info.gfx).x, text_pos.to_pixel(info.gfx).y)
+                .v_align_bottom()
+                .h_align_left()
+                .color(info.theme.ui_text_dark);
+        
+            set_text_size(&mut text, LEVEL_SELECTION_DIFFICULTY_TEXT_SIZE, info.gfx);
+        }
+
+        let mut sequent_pos = bottom_left;
+        sequent_pos.x += left_padding;
+        sequent_pos.y += LEVEL_SELECTION_SEQUENT_Y;
 
         let mut render_info = proof::rendering::RenderInfo {
             draw: info.draw,
@@ -226,23 +247,7 @@ impl MenuItem for LevelSelection {
             fields_creation_time: &mut HashMap::new(),
         };
 
-        proof::rendering::draw_sequent(&self.level.seq, text_pos, 1.0, &mut render_info);
-        let width = proof::rendering::get_sequent_width(&self.level.seq, &mut render_info);
-
-        text_pos.x += width + LEVEL_SELECTION_MARGIN_AFTER_NAME;
-        text_pos.y += BUTTON_HEIGHT * 0.5;
-
-        {
-            let diff_string = format!("({})", self.level.difficulty.to_string());
-            let mut text = info.draw.text(info.text_font, &diff_string);
-            
-            text.position(text_pos.to_pixel(info.gfx).x, text_pos.to_pixel(info.gfx).y)
-                .v_align_middle()
-                .h_align_left()
-                .color(info.theme.ui_text_dark);
-        
-            set_text_size(&mut text, LEVEL_SELECTION_DIFFICULTY_TEXT_SIZE, info.gfx);
-        }
+        proof::rendering::draw_sequent(&self.level.seq, sequent_pos, 1.0, &mut render_info);
     }
 
     fn on_interact(&mut self) {
@@ -250,7 +255,11 @@ impl MenuItem for LevelSelection {
     }
 
     fn get_effect(&self) -> MenuEffect { 
-        MenuEffect::Nothing
+        let id = self.id;
+
+        return MenuEffect::ChangeGameMode(Rc::new(move |state| {
+            return ingame::get_initial_state(Some(id), state);
+        }));
     }
 
     fn get_height(&self, _info: &mut DrawInfo) -> f32 {
@@ -344,7 +353,7 @@ pub fn draw_menu(state: &mut State, app: &mut App, gfx: &mut Graphics, draw: &mu
                 element.on_interact();
 
                 match element.get_effect() {
-                    MenuEffect::ChangeGameMode(mode) => state.mode = mode(),
+                    MenuEffect::ChangeGameMode(mode) => state.mode = mode(state),
                     MenuEffect::ChangeMenu(menu) => {
                         state.mode = get_in_menu(menu(state));
                     },
@@ -400,7 +409,7 @@ pub fn main_menu(_: &State) -> Menu {
     return Menu { 
         elements: vec![
             button("Solve", MenuEffect::ChangeMenu(level_list)),
-            button("Free editing", MenuEffect::ChangeGameMode(start_free_editing)),
+            button("Free editing", MenuEffect::ChangeGameMode(Rc::new(start_free_editing))),
             button("Settings", MenuEffect::ChangeMenu(settings)),
             button("Quit", MenuEffect::ChangeMenu(quit_confirmation)),
         ], 
@@ -409,8 +418,8 @@ pub fn main_menu(_: &State) -> Menu {
 }
 
 pub fn level_list(state: &State) -> Menu {
-    let mut levels_buttons: Vec<Box<dyn MenuItem>> = state.levels.iter().map(
-        |level| Box::new(LevelSelection { level: level.clone(), last_focused_time: 0.0, last_unfocused_time: 0.0 }) as Box<dyn MenuItem>
+    let mut levels_buttons: Vec<Box<dyn MenuItem>> = state.levels.iter().enumerate().map(
+        |(id, level)| Box::new(LevelSelection { level: level.clone(), id, last_focused_time: 0.0, last_unfocused_time: 0.0 }) as Box<dyn MenuItem>
     ).collect();
 
     levels_buttons.push(button("Back", MenuEffect::ChangeMenu(main_menu)));
@@ -508,8 +517,8 @@ pub fn handle_key_input(key_record_state: KeyRecordState, state: &mut State, dra
     }
 }
 
-fn start_free_editing() -> crate::GameMode {
-    return ingame::get_initial_state(proof::get_empty_sequent(), 0.0);
+fn start_free_editing(state: &State) -> crate::GameMode {
+    return ingame::get_initial_state(None, state);
 }
 
 fn handle_focus_times(last_focused_time: &mut f32, last_unfocused_time: &mut f32, focused: bool, info: &mut DrawInfo) {

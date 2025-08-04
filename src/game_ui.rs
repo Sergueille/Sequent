@@ -26,6 +26,11 @@ pub const MISC_KEYS_COLUMN_SIZE: f32 = 0.3;
 pub const MISC_KEYS_SCALE: f32 = 0.6;
 pub const MISC_KEYS_SCALE_SHIFT_X: f32 = 0.07;
 
+pub const LEVEL_NAME_Y: f32 = -0.8;
+pub const LEVEL_NAME_SIZE: f32 = 60.0;
+pub const LEVEL_CHANGE_Y: f32 = -0.9;
+pub const LEVEL_CHANGE_SIZE: f32 = 40.0;
+
 
 pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graphics, state: &State) {
     
@@ -113,6 +118,50 @@ pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graph
 
 }
 
+pub fn render_bottom_ui(draw: &mut Draw, gfx: &Graphics, state: &State) {
+    
+    let game_state = match &state.mode {
+        GameMode::Ingame(s) => s,
+        _ => unreachable!()
+    };
+
+    match game_state.current_level_id {
+        Some(level_id) => {
+            let level = &state.levels[level_id];
+
+            {
+                // Draw level name
+                let text_pos = ScreenPosition { x: 0.0, y: LEVEL_NAME_Y }.to_pixel(gfx);
+                let mut text = draw.text(&state.text_font, &level.name);
+                text.position(text_pos.x, text_pos.y)
+                    .color(state.settings.theme().ui_text)
+                    .v_align_middle()
+                    .h_align_center();
+            
+                set_text_size(&mut text, LEVEL_NAME_SIZE, gfx);
+            }
+
+            // Draw keys
+            draw_action(
+                crate::action::Action::Left,
+                ScreenPosition { x: -0.05, y: LEVEL_CHANGE_Y }, 
+                1.0,
+                *state.settings.theme(), state.settings.bindings(),
+                &state.symbol_font, draw, gfx
+            );
+            draw_action(
+                crate::action::Action::Right,
+                ScreenPosition { x: 0.05, y: LEVEL_CHANGE_Y }, 
+                1.0,
+                *state.settings.theme(), state.settings.bindings(),
+                &state.symbol_font, draw, gfx
+            );
+        },
+        None => {
+            
+        },
+    }
+}
 
 fn draw_action_and_text(pos: ScreenPosition, action: crate::action::Action, text: &str, text_scale: f32, theme: Theme, bindings: &crate::action::Bindings, 
     symbol_font: &Font, draw: &mut Draw, gfx: &Graphics

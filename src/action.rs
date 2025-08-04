@@ -150,6 +150,10 @@ pub fn key_code_display(code: KeyCode) -> String {
     match code {
         KeyCode::Escape => String::from("Esc"),
         KeyCode::Back => String::from("Backspace"),
+        KeyCode::Left => String::from("←"),
+        KeyCode::Right => String::from("→"),
+        KeyCode::Up => String::from("↑"),
+        KeyCode::Down => String::from("↓"),
         _ => format!("{:?}", code),
     }
 }
