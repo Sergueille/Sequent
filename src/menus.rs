@@ -7,7 +7,6 @@ use notan::draw::{Draw, DrawShapes, DrawTextSection};
 use notan::app::Graphics;
 use notan::prelude::*;
 use crate::coord::PixelPosition;
-use crate::parser::Level;
 use crate::{action, ingame, misc, proof};
 use crate::State;
 use crate::coord::*;
@@ -28,9 +27,9 @@ pub const BUTTONS_PADDING_TAU: f32 = 0.07;
 pub const LEVEL_SELECTION_HEIGHT: f32 = 0.2;
 pub const LEVEL_SELECTION_WIDTH: f32 = 1.2;
 pub const LEVEL_SELECTION_NAME_Y: f32 = 0.1;
-pub const LEVEL_SELECTION_DIFFICULTY_Y: f32 = 0.11;
+pub const LEVEL_SELECTION_DIFFICULTY_Y: f32 = 0.115;
 pub const LEVEL_SELECTION_SEQUENT_Y: f32 = 0.02;
-pub const LEVEL_SELECTION_MARGIN_AFTER_NAME: f32 = 0.05;
+pub const LEVEL_SELECTION_MARGIN_AFTER_NAME: f32 = 0.04;
 pub const LEVEL_SELECTION_DIFFICULTY_TEXT_SIZE: f32 = 20.0;
 
 pub const MENU_LEFT_SPACE: f32 = 0.2;
@@ -73,7 +72,7 @@ pub struct DrawInfo<'a> {
 #[derive(Clone)]
 pub enum MenuEffect {
     ChangeGameMode(Rc<dyn Fn(&State) -> crate::GameMode>),
-    ChangeMenu(fn(&State) -> Menu),
+    ChangeMenu(Rc<dyn Fn(&State) -> Menu>),
     SetActionKey(action::Action),
     Quit,
     Nothing
@@ -103,8 +102,9 @@ pub struct Button {
 }
 
 pub struct LevelSelection {
-    pub level: Level,
+    pub level: crate::parser::Level,
     pub id: usize,
+    pub campaign_id: String,
     pub last_focused_time: f32,
     pub last_unfocused_time: f32,
 }
@@ -256,9 +256,10 @@ impl MenuItem for LevelSelection {
 
     fn get_effect(&self) -> MenuEffect { 
         let id = self.id;
+        let campaign_id = self.campaign_id.clone();
 
         return MenuEffect::ChangeGameMode(Rc::new(move |state| {
-            return ingame::get_initial_state(Some(id), state);
+            return ingame::get_initial_state(Some(&campaign_id), Some(id), ScreenSize::zero(), state);
         }));
     }
 
@@ -408,25 +409,49 @@ fn label(label: &str) -> Box<Label> {
 pub fn main_menu(_: &State) -> Menu {
     return Menu { 
         elements: vec![
-            button("Solve", MenuEffect::ChangeMenu(level_list)),
+            button("Solve", MenuEffect::ChangeMenu(Rc::new(campaigns_menu))),
             button("Free editing", MenuEffect::ChangeGameMode(Rc::new(start_free_editing))),
-            button("Settings", MenuEffect::ChangeMenu(settings)),
-            button("Quit", MenuEffect::ChangeMenu(quit_confirmation)),
+            button("Settings", MenuEffect::ChangeMenu(Rc::new(settings))),
+            button("Quit", MenuEffect::ChangeMenu(Rc::new(quit_confirmation))),
         ], 
         previous_menu: None,
     };
 }
 
-pub fn level_list(state: &State) -> Menu {
-    let mut levels_buttons: Vec<Box<dyn MenuItem>> = state.levels.iter().enumerate().map(
-        |(id, level)| Box::new(LevelSelection { level: level.clone(), id, last_focused_time: 0.0, last_unfocused_time: 0.0 }) as Box<dyn MenuItem>
+pub fn campaigns_menu(state: &State) -> Menu {
+    let mut buttons: Vec<Box<dyn MenuItem>> = state.campaigns.iter().map(|(id, campaign)| {
+        let id_owned = id.clone();
+
+        return button(
+            &campaign.name,
+            MenuEffect::ChangeMenu(Rc::new(move |state| level_list(id_owned.clone(), state)))
+        ) as Box<dyn MenuItem>;
+    }).into_iter().collect();
+
+    buttons.push(button("Back", MenuEffect::ChangeMenu(Rc::new(main_menu))));
+
+    return Menu { 
+        elements: buttons, 
+        previous_menu: Some(main_menu),
+    };
+}
+
+pub fn level_list(campaign_id: String, state: &State) -> Menu {
+    let mut levels_buttons: Vec<Box<dyn MenuItem>> = state.campaigns.get(&campaign_id).unwrap().levels.iter().enumerate().map(
+        move |(id, level)| Box::new(LevelSelection { 
+            campaign_id: campaign_id.clone(), 
+            level: level.clone(), 
+            id, 
+            last_focused_time: 0.0, 
+            last_unfocused_time: 0.0 
+        }) as Box<dyn MenuItem>
     ).collect();
 
-    levels_buttons.push(button("Back", MenuEffect::ChangeMenu(main_menu)));
+    levels_buttons.push(button("Back", MenuEffect::ChangeMenu(Rc::new(main_menu))));
 
     return Menu { 
         elements: levels_buttons, 
-        previous_menu: Some(main_menu),
+        previous_menu: Some(campaigns_menu),
     };
 }
 
@@ -434,8 +459,8 @@ pub fn settings(_: &State) -> Menu {
     return Menu { 
         elements: vec![
             label("Settings"),
-            button("Keyboard", MenuEffect::ChangeMenu(keyboard)),
-            button("Back", MenuEffect::ChangeMenu(main_menu))
+            button("Keyboard", MenuEffect::ChangeMenu(Rc::new(keyboard))),
+            button("Back", MenuEffect::ChangeMenu(Rc::new(main_menu)))
         ],
         previous_menu: Some(main_menu),
     };
@@ -465,7 +490,7 @@ pub fn keyboard(state: &State) -> Menu {
 
     res.append(&mut keys);
 
-    res.push(button("Back", MenuEffect::ChangeMenu(settings)));
+    res.push(button("Back", MenuEffect::ChangeMenu(Rc::new(settings))));
 
 
     return Menu { 
@@ -478,7 +503,7 @@ pub fn quit_confirmation(_: &State) -> Menu {
     return Menu { 
         elements: vec![
             label("Confirm exiting the app?"),
-            button("No", MenuEffect::ChangeMenu(main_menu)),
+            button("No", MenuEffect::ChangeMenu(Rc::new(main_menu))),
             button("Yes", MenuEffect::Quit)
         ], 
         previous_menu: Some(main_menu),
@@ -518,7 +543,7 @@ pub fn handle_key_input(key_record_state: KeyRecordState, state: &mut State, dra
 }
 
 fn start_free_editing(state: &State) -> crate::GameMode {
-    return ingame::get_initial_state(None, state);
+    return ingame::get_initial_state(None, None, ScreenSize::zero(), state);
 }
 
 fn handle_focus_times(last_focused_time: &mut f32, last_unfocused_time: &mut f32, focused: bool, info: &mut DrawInfo) {

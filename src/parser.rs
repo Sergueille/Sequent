@@ -19,7 +19,13 @@ pub enum Difficulty {
 }
 
 #[derive(Clone)]
-pub struct Level{
+pub struct Campaign {
+    pub name: String,
+    pub levels: Vec<Level>,
+}
+
+#[derive(Clone)]
+pub struct Level {
     pub id: usize,
     pub name: String,
     pub seq: Sequent,
@@ -157,7 +163,7 @@ pub fn parse_ligne(ligne: &str, ligne_number: usize) -> Level{
     result
 }
 
-pub fn parse_file(path: &str) -> Vec<Level>{
+pub fn parse_file(path: &str) -> Campaign {
 
     let contents = fs::read_to_string(path.to_string()).expect("Should have been able to read the file");
     let lignes: Vec<&str> = contents.split('\n').collect();
@@ -170,7 +176,10 @@ pub fn parse_file(path: &str) -> Vec<Level>{
         }
     }
 
-    levels
+    return Campaign {
+        name: path.split('/').last().unwrap().to_string(),
+        levels
+    };
 }
 
 impl ToString for Difficulty

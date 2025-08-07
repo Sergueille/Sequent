@@ -4,6 +4,8 @@ use crate::*;
 pub const SCREEN_SHAKE_TAU: f32 = 0.1;
 pub const SCREEN_SHAKE_AMPLITUDE: f32 = 0.01;
 
+pub const LEVEL_CHANGE_SEQUENT_SHIFT: f32 = 0.2;
+
 pub struct GameState {
     pub logic_system: LogicSystem,
     pub state: UndoState,
@@ -14,8 +16,10 @@ pub struct GameState {
     pub last_shake_time: f32,
     pub initial_sequent: Sequent,
     pub finished_proof: bool,
+    pub current_campaign_id: Option<String>,
     pub current_level_id: Option<usize>,
     pub edit_start_time: f32,
+    pub proof_finish_time: f32,
 }
 
 #[derive(Clone)]
@@ -36,6 +40,17 @@ pub struct UndoState {
     pub fields_creation_time: HashMap<u32, f32>,
     
     pub node_to_check_after_fields_completed: Option<u32>,
+}
+
+impl GameState {
+    pub fn get_level(&self, state: &State) -> Option<Level> {
+        match (self.current_campaign_id.as_ref(), self.current_level_id) {
+            (Some(camp_id), Some(i)) => {
+                Some(state.campaigns.get(camp_id).unwrap().levels[i].clone())
+            },
+            _ => None
+        }
+    }
 }
 
 pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut Draw) {
@@ -168,7 +183,13 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
                     } 
                 }
             },
-            None => game_state.finished_proof = true, // TODO: show proof is finished
+            None => {
+                game_state.finished_proof = true;
+
+                if game_state.proof_finish_time == f32::NEG_INFINITY {
+                    game_state.proof_finish_time = state.time;
+                }
+            }
         }
     }
 
@@ -210,6 +231,8 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
         state.settings.set_show_game_keys(!state.settings.show_game_keys());
     }
 
+    let GameMode::Ingame(game_state) = &state.mode else { unreachable!(); };
+
     if game_state.finished_proof || game_state.undo_stack.is_empty() {
         game_ui::render_bottom_ui(draw, gfx, state);
     }
@@ -217,8 +240,8 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
     if *state.settings.show_game_keys() {
         game_ui::render_ui(special_mode, &state.symbol_font, draw, gfx, state);
     }
-    
-    let GameMode::Ingame(game_state) = &mut state.mode else { unreachable!(); };
+
+    game_ui::render_timer(game_state.finished_proof, draw, gfx, state);
     
     if action::was_pressed(action::Action::Exit, state.settings.bindings(), app) { // Handle exit key 
         state.mode = menus::get_in_menu(menus::main_menu(state));
@@ -228,7 +251,7 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
             let id = game_state.current_level_id.unwrap();
 
             if id > 0 {
-                state.mode = ingame::get_initial_state(Some(id - 1) , state)
+                state.mode = ingame::get_initial_state(game_state.current_campaign_id.as_deref(), Some(id - 1) , ScreenSize { x: -LEVEL_CHANGE_SEQUENT_SHIFT, y:0.0 }, state)
             }
         }
     }
@@ -236,8 +259,8 @@ pub fn game_frame(state: &mut State, app: &App, gfx: &mut Graphics, draw: &mut D
         if game_state.current_level_id.is_some() {
             let id = game_state.current_level_id.unwrap();
 
-            if id < state.levels.len() - 1{
-                state.mode = ingame::get_initial_state(Some(id + 1) , state)
+            if id < state.campaigns.get(game_state.current_campaign_id.as_ref().unwrap()).unwrap().levels.len() - 1{
+                state.mode = ingame::get_initial_state(game_state.current_campaign_id.as_deref(), Some(id + 1) , ScreenSize { x: LEVEL_CHANGE_SEQUENT_SHIFT, y:0.0 }, state)
             }
         }
     }
@@ -361,12 +384,13 @@ fn adjust_proof_position(screen_ratio: f32, proof_width: f32, game_state: &mut G
     game_state.sequent_scale += (target_size - game_state.sequent_scale) * CAMERA_MOVEMENT_SPEED_SCALE * app.timer.delta_f32();
 }
 
-pub fn get_initial_state(level_id: Option<usize>, state: &State) -> GameMode {
-    let start_seq = match level_id {
-        Some(i) => {
-            state.levels[i].seq.clone()
+pub fn get_initial_state(campaign_id: Option<&str>, level_id: Option<usize>, sequent_initial_position: ScreenSize, state: &State) -> GameMode {
+    let start_seq = match (campaign_id, level_id) {
+        (Some(campaign_id), Some(i)) => {
+            state.campaigns.get(campaign_id).unwrap().levels[i].seq.clone()
         },
-        None => proof::get_empty_sequent(),
+        (None, None) => proof::get_empty_sequent(),
+        _ => unreachable!(),
     };
 
     return GameMode::Ingame(ingame::GameState {
@@ -374,13 +398,15 @@ pub fn get_initial_state(level_id: Option<usize>, state: &State) -> GameMode {
         undo_stack: Vec::new(),
         redo_stack: Vec::new(),
         state: get_start_sequent_state(start_seq.clone(), state.time),
-        sequent_position: ScreenSize::zero(),
+        sequent_position: sequent_initial_position,
         sequent_scale: 1.0,
         last_shake_time: f32::NEG_INFINITY,
         initial_sequent: start_seq,
         finished_proof: false,
+        current_campaign_id: campaign_id.map(|s| String::from(s)),
         current_level_id: level_id,
         edit_start_time: state.time,
+        proof_finish_time: f32::NEG_INFINITY,
     });
 }
 

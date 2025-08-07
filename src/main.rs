@@ -12,8 +12,6 @@ use notan::egui::{self, *};
 use rendering::draw_proof;
 use rendering::get_proof_width;
 use crate::parser::*;
-// use crate::parser::Difficulty;
-use crate::parser::Level;
 
 mod proof;
 mod coord;
@@ -26,6 +24,8 @@ mod menus;
 mod settings;
 mod misc;
 mod parser;
+
+pub const LEVELS_PATH: &str = "assets/levels";
 
 /// Current global state of the game.
 #[allow(clippy::large_enum_variant)]
@@ -55,7 +55,7 @@ struct State {
     screen_ratio: f32,
     background_state: background::BackgroundState,
     settings: settings::Settings,
-    levels: Vec<Level>,
+    campaigns: HashMap<String, Campaign>,
     time: f32,
 }
 
@@ -108,7 +108,13 @@ fn setup(gfx: &mut Graphics) -> State {
         },
     };
 
-    let levels = parse_file("assets/levels/test.sq");
+    let mut campaigns = HashMap::new();
+    for file in std::fs::read_dir(LEVELS_PATH).unwrap() {
+        campaigns.insert(
+            String::from(file.as_ref().unwrap().path().file_name().unwrap().to_str().unwrap()),
+            parse_file(file.as_ref().unwrap().path().to_str().unwrap())
+        );
+    }
 
     let mut state = State {
         text_font: font,
@@ -116,10 +122,10 @@ fn setup(gfx: &mut Graphics) -> State {
         cached_sizes: proof::rendering::compute_char_sizes(&font, &symbol_font),
         mode: GameMode::None,
         // mode: ingame::get_initial_state(proof::get_empty_sequent(), 0.0),
+        campaigns,
         screen_ratio: 1.0,
         background_state: background::init_background_state(),
         settings,
-        levels,
         time: 0.0,
     };
 

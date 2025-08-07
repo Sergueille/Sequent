@@ -30,6 +30,11 @@ pub const LEVEL_NAME_Y: f32 = -0.8;
 pub const LEVEL_NAME_SIZE: f32 = 60.0;
 pub const LEVEL_CHANGE_Y: f32 = -0.9;
 pub const LEVEL_CHANGE_SIZE: f32 = 40.0;
+pub const LEVEL_CHANGE_KEYS_X: f32 = 0.2;
+
+pub const TIMER_MARGIN: f32 = 0.05;
+pub const TIMER_SIZE: f32 = 40.0;
+pub const TIMER_SIZE_BIG: f32 = 60.0;
 
 
 pub fn render_ui(special: bool, symbol_font: &Font, draw: &mut Draw, gfx: &Graphics, state: &State) {
@@ -127,7 +132,7 @@ pub fn render_bottom_ui(draw: &mut Draw, gfx: &Graphics, state: &State) {
 
     match game_state.current_level_id {
         Some(level_id) => {
-            let level = &state.levels[level_id];
+            let level = &game_state.get_level(state).unwrap();
 
             {
                 // Draw level name
@@ -141,17 +146,30 @@ pub fn render_bottom_ui(draw: &mut Draw, gfx: &Graphics, state: &State) {
                 set_text_size(&mut text, LEVEL_NAME_SIZE, gfx);
             }
 
+            {
+                // Draw level index
+                let text_pos = ScreenPosition { x: 0.0, y: LEVEL_CHANGE_Y }.to_pixel(gfx);
+                let index_text = format!("{}/{}", level_id + 1, state.campaigns.get(game_state.current_campaign_id.as_ref().unwrap()).unwrap().levels.len());
+                let mut text = draw.text(&state.text_font, &index_text);
+                text.position(text_pos.x, text_pos.y)
+                    .color(state.settings.theme().ui_text)
+                    .v_align_middle()
+                    .h_align_center();
+            
+                set_text_size(&mut text, LEVEL_CHANGE_SIZE, gfx);
+            }
+
             // Draw keys
             draw_action(
                 crate::action::Action::Left,
-                ScreenPosition { x: -0.05, y: LEVEL_CHANGE_Y }, 
+                ScreenPosition { x: -LEVEL_CHANGE_KEYS_X, y: LEVEL_CHANGE_Y }, 
                 1.0,
                 *state.settings.theme(), state.settings.bindings(),
                 &state.symbol_font, draw, gfx
             );
             draw_action(
                 crate::action::Action::Right,
-                ScreenPosition { x: 0.05, y: LEVEL_CHANGE_Y }, 
+                ScreenPosition { x: LEVEL_CHANGE_KEYS_X, y: LEVEL_CHANGE_Y }, 
                 1.0,
                 *state.settings.theme(), state.settings.bindings(),
                 &state.symbol_font, draw, gfx
@@ -160,6 +178,33 @@ pub fn render_bottom_ui(draw: &mut Draw, gfx: &Graphics, state: &State) {
         None => {
             
         },
+    }
+}
+
+pub fn render_timer(finished: bool, draw: &mut Draw, gfx: &Graphics, state: &State)
+{
+    let game_state = match &state.mode {
+        GameMode::Ingame(s) => s,
+        _ => unreachable!()
+    };
+
+    let time = if finished {
+        game_state.proof_finish_time - game_state.edit_start_time
+    } else {
+        state.time - game_state.edit_start_time
+    };
+
+    let pos = ScreenPosition { x: -state.screen_ratio + TIMER_MARGIN, y: -1.0 + TIMER_MARGIN }.to_pixel(gfx);
+    let text = format!("{}:{}", time.floor(), (time * 100.0).floor() as u32 % 100);
+
+    {
+        let mut text = draw.text(&state.text_font, &text);
+        text.position(pos.x, pos.y)
+            .color(if finished { state.settings.theme().ui_text } else { state.settings.theme().ui_text_transparent })
+            .v_align_bottom()
+            .h_align_left();
+    
+        set_text_size(&mut text, if finished { TIMER_SIZE_BIG } else { TIMER_SIZE }, gfx);
     }
 }
 
